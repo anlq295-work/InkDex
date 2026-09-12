@@ -33,8 +33,12 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.eink.reader.data.repository.MangaRepository
 import com.eink.reader.data.repository.SettingsManager
+import com.eink.reader.ui.components.UpdateDialog
 import com.eink.reader.ui.screens.*
 import com.eink.reader.ui.theme.*
+import com.eink.reader.util.AppReleaseInfo
+import com.eink.reader.util.AppUpdateHelper
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -86,6 +90,18 @@ class MainActivity : ComponentActivity() {
 
                     val isBottomBarVisible = currentRoute in listOf("home", "library", "settings")
                     var isPornographic by remember { mutableStateOf(repository.settingsManager.contentRatingPornographic) }
+                    var startupUpdateInfo by remember { mutableStateOf<AppReleaseInfo?>(null) }
+
+                    LaunchedEffect(Unit) {
+                        delay(2000)
+                        val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.1")
+                        res.onSuccess { info ->
+                            if (info.isNewer) {
+                                startupUpdateInfo = info
+                            }
+                        }
+                    }
+
                     DisposableEffect(Unit) {
                         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
                             if (key == "cr_pornographic") {
@@ -341,6 +357,14 @@ class MainActivity : ComponentActivity() {
                                     initialPage = initialPage
                                 )
                             }
+                        }
+
+                        startupUpdateInfo?.let { info ->
+                            UpdateDialog(
+                                releaseInfo = info,
+                                currentVersion = "1.1",
+                                onDismiss = { startupUpdateInfo = null }
+                            )
                         }
                     }
                 }
