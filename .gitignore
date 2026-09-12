@@ -1,0 +1,25 @@
+# Built-in Android Studio / Gradle ignores
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+app/build/
+.kotlin/
+
+# Batch scripts & local machine tools (bỏ qua mọi file bat trừ gradlew.bat)
+*.bat
+!gradlew.bat
+
+# APK & App Bundles (Phân phối qua GitHub Releases)
+*.apk
+*.aab
+*.ap_
+
+# Log & Temporary files
+*.log
+Thumbs.db
+captures/
+.externalNativeBuild/
+.cxx/
