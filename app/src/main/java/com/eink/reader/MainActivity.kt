@@ -94,7 +94,7 @@ class MainActivity : ComponentActivity() {
 
                     LaunchedEffect(Unit) {
                         delay(2000)
-                        val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.1")
+                        val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.1.1")
                         res.onSuccess { info ->
                             if (info.isNewer) {
                                 startupUpdateInfo = info
@@ -362,7 +362,7 @@ class MainActivity : ComponentActivity() {
                         startupUpdateInfo?.let { info ->
                             UpdateDialog(
                                 releaseInfo = info,
-                                currentVersion = "1.1",
+                                currentVersion = "1.1.1",
                                 onDismiss = { startupUpdateInfo = null }
                             )
                         }

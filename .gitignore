@@ -16,6 +16,7 @@ app/build/
 *.apk
 *.aab
 *.ap_
+*.idsig
 
 # Log & Temporary files
 *.log
