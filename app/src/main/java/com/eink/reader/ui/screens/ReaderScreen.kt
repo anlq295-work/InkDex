@@ -385,10 +385,12 @@ fun ReaderScreen(
         }
     }
 
+    val isEInkSupportEnabled = repository.settingsManager.eInkSupportEnabled
+
     // Tự động khử bóng ma định kỳ theo cài đặt eInkAutoRefreshInterval
-    LaunchedEffect(currentPageIndex) {
+    LaunchedEffect(currentPageIndex, isEInkSupportEnabled) {
         val autoInterval = repository.settingsManager.eInkAutoRefreshInterval
-        if (autoInterval > 0 && currentPageIndex > 0 && (currentPageIndex + 1) % autoInterval == 0) {
+        if (isEInkSupportEnabled && autoInterval > 0 && currentPageIndex > 0 && (currentPageIndex + 1) % autoInterval == 0) {
             com.eink.reader.util.EInkHelper.triggerFullEInkRefresh(
                 scope = coroutineScope,
                 view = view,
@@ -412,58 +414,62 @@ fun ReaderScreen(
         }
     }
 
-    val imageColorFilter = remember(colorMode) {
-        when (colorMode) {
-            EInkColorMode.ORIGINAL -> null
-            EInkColorMode.KALEIDO_3 -> {
-                // Tối ưu đặc biệt cho màn hình E-Ink màu Bigme B751C / B751C S (Kaleido 3):
-                // 1. Nâng độ bão hòa lên 1.75f để bù đắp 4096 màu pastel của tấm nền Kaleido 3
-                val matrix = ColorMatrix().apply { setToSaturation(1.75f) }
-                // 2. Tăng độ tương phản (1.20f) kết hợp nâng sáng (+20f) để bù đắp lượng ánh sáng
-                // hao hụt do lớp kính lọc màu CFA hấp thụ, giữ nền trang trắng sáng và nét vẽ đen đậm
-                val contrast = 1.20f
-                val brightnessLift = 20f
-                val translate = (-0.5f * contrast + 0.5f) * 255f + brightnessLift
-                val contrastMatrix = ColorMatrix(
-                    floatArrayOf(
-                        contrast, 0f, 0f, 0f, translate,
-                        0f, contrast, 0f, 0f, translate,
-                        0f, 0f, contrast, 0f, translate,
-                        0f, 0f, 0f, 1f, 0f
+    val imageColorFilter = remember(colorMode, isEInkSupportEnabled) {
+        if (!isEInkSupportEnabled) {
+            null
+        } else {
+            when (colorMode) {
+                EInkColorMode.ORIGINAL -> null
+                EInkColorMode.KALEIDO_3 -> {
+                    // Tối ưu đặc biệt cho màn hình E-Ink màu Bigme B751C / B751C S (Kaleido 3):
+                    // 1. Nâng độ bão hòa lên 1.75f để bù đắp 4096 màu pastel của tấm nền Kaleido 3
+                    val matrix = ColorMatrix().apply { setToSaturation(1.75f) }
+                    // 2. Tăng độ tương phản (1.20f) kết hợp nâng sáng (+20f) để bù đắp lượng ánh sáng
+                    // hao hụt do lớp kính lọc màu CFA hấp thụ, giữ nền trang trắng sáng và nét vẽ đen đậm
+                    val contrast = 1.20f
+                    val brightnessLift = 20f
+                    val translate = (-0.5f * contrast + 0.5f) * 255f + brightnessLift
+                    val contrastMatrix = ColorMatrix(
+                        floatArrayOf(
+                            contrast, 0f, 0f, 0f, translate,
+                            0f, contrast, 0f, 0f, translate,
+                            0f, 0f, contrast, 0f, translate,
+                            0f, 0f, 0f, 1f, 0f
+                        )
                     )
-                )
-                matrix.timesAssign(contrastMatrix)
-                ColorFilter.colorMatrix(matrix)
-            }
-            EInkColorMode.COLOR_BOOST -> {
-                val matrix = ColorMatrix().apply { setToSaturation(1.4f) }
-                val contrast = 1.2f
-                val translate = (-0.5f * contrast + 0.5f) * 255f + 8f
-                val contrastMatrix = ColorMatrix(
-                    floatArrayOf(
-                        contrast, 0f, 0f, 0f, translate,
-                        0f, contrast, 0f, 0f, translate,
-                        0f, 0f, contrast, 0f, translate,
-                        0f, 0f, 0f, 1f, 0f
+                    matrix.timesAssign(contrastMatrix)
+                    ColorFilter.colorMatrix(matrix)
+                }
+                EInkColorMode.COLOR_BOOST -> {
+                    val matrix = ColorMatrix().apply { setToSaturation(1.4f) }
+                    val contrast = 1.2f
+                    val translate = (-0.5f * contrast + 0.5f) * 255f + 8f
+                    val contrastMatrix = ColorMatrix(
+                        floatArrayOf(
+                            contrast, 0f, 0f, 0f, translate,
+                            0f, contrast, 0f, 0f, translate,
+                            0f, 0f, contrast, 0f, translate,
+                            0f, 0f, 0f, 1f, 0f
+                        )
                     )
-                )
-                matrix.timesAssign(contrastMatrix)
-                ColorFilter.colorMatrix(matrix)
-            }
-            EInkColorMode.MONOCHROME -> {
-                val matrix = ColorMatrix().apply { setToSaturation(0f) }
-                val contrast = 1.35f
-                val translate = (-0.5f * contrast + 0.5f) * 255f + 10f
-                val contrastMatrix = ColorMatrix(
-                    floatArrayOf(
-                        contrast, 0f, 0f, 0f, translate,
-                        0f, contrast, 0f, 0f, translate,
-                        0f, 0f, contrast, 0f, translate,
-                        0f, 0f, 0f, 1f, 0f
+                    matrix.timesAssign(contrastMatrix)
+                    ColorFilter.colorMatrix(matrix)
+                }
+                EInkColorMode.MONOCHROME -> {
+                    val matrix = ColorMatrix().apply { setToSaturation(0f) }
+                    val contrast = 1.35f
+                    val translate = (-0.5f * contrast + 0.5f) * 255f + 10f
+                    val contrastMatrix = ColorMatrix(
+                        floatArrayOf(
+                            contrast, 0f, 0f, 0f, translate,
+                            0f, contrast, 0f, 0f, translate,
+                            0f, 0f, contrast, 0f, translate,
+                            0f, 0f, 0f, 1f, 0f
+                        )
                     )
-                )
-                matrix.timesAssign(contrastMatrix)
-                ColorFilter.colorMatrix(matrix)
+                    matrix.timesAssign(contrastMatrix)
+                    ColorFilter.colorMatrix(matrix)
+                }
             }
         }
     }
@@ -885,7 +891,7 @@ fun ReaderScreen(
             }
         }
 
-        if (isScreenFlashRefreshing) {
+        if (isScreenFlashRefreshing && isEInkSupportEnabled) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -905,8 +911,8 @@ fun ReaderScreen(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
                     ) {}
-                    .statusBarsPadding()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                .statusBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -925,14 +931,16 @@ fun ReaderScreen(
                     modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
                 )
 
-                OutlinedButton(
-                    onClick = { triggerEInkRefresh() },
-                    shape = RoundedCornerShape(2.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                    modifier = Modifier.height(30.dp)
-                ) {
-                    Text("Khử bóng ma", color = EInkBlack, style = MaterialTheme.typography.labelSmall)
+                if (isEInkSupportEnabled) {
+                    OutlinedButton(
+                        onClick = { triggerEInkRefresh() },
+                        shape = RoundedCornerShape(2.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.height(30.dp)
+                    ) {
+                        Text("Khử bóng ma", color = EInkBlack, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
 
@@ -1161,39 +1169,41 @@ fun ReaderScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
-
                 // Dòng 2: Tùy chọn chế độ màu E-Ink (Bigme Kaleido 3, Tăng nét, Đen trắng, Gốc)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    EInkColorMode.entries.forEach { mode ->
-                        val isSelected = colorMode == mode
-                        OutlinedButton(
-                            onClick = {
-                                colorMode = mode
-                                repository.settingsManager.defaultReaderColorMode = mode.name
-                            },
-                            shape = RoundedCornerShape(2.dp),
-                            border = androidx.compose.foundation.BorderStroke(
-                                if (isSelected) 2.dp else 1.dp,
-                                EInkBlack
-                            ),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = if (isSelected) EInkBlack else EInkWhite,
-                                contentColor = if (isSelected) EInkWhite else EInkBlack
-                            ),
-                            modifier = Modifier.weight(1f).height(32.dp),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Text(
-                                text = mode.shortTitle,
-                                color = if (isSelected) EInkWhite else EInkBlack,
-                                style = MaterialTheme.typography.labelSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                if (isEInkSupportEnabled) {
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        EInkColorMode.entries.forEach { mode ->
+                            val isSelected = colorMode == mode
+                            OutlinedButton(
+                                onClick = {
+                                    colorMode = mode
+                                    repository.settingsManager.defaultReaderColorMode = mode.name
+                                },
+                                shape = RoundedCornerShape(2.dp),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    if (isSelected) 2.dp else 1.dp,
+                                    EInkBlack
+                                ),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (isSelected) EInkBlack else EInkWhite,
+                                    contentColor = if (isSelected) EInkWhite else EInkBlack
+                                ),
+                                modifier = Modifier.weight(1f).height(32.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text(
+                                    text = mode.shortTitle,
+                                    color = if (isSelected) EInkWhite else EInkBlack,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }

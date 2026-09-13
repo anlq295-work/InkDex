@@ -68,17 +68,10 @@ fun EInkReaderTheme(
     disableOverscroll: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    if (disableOverscroll) {
-        androidx.compose.runtime.CompositionLocalProvider(
-            androidx.compose.foundation.LocalOverscrollConfiguration provides null
-        ) {
-            MaterialTheme(
-                colorScheme = EInkColorScheme,
-                typography = EInkTypography,
-                content = content
-            )
-        }
-    } else {
+    val overscrollConfig = if (disableOverscroll) null else androidx.compose.foundation.OverscrollConfiguration()
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.foundation.LocalOverscrollConfiguration provides overscrollConfig
+    ) {
         MaterialTheme(
             colorScheme = EInkColorScheme,
             typography = EInkTypography,

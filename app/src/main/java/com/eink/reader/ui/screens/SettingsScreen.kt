@@ -130,6 +130,7 @@ fun SettingsScreen(
     var disablePinError by remember { mutableStateOf<String?>(null) }
 
     // State cho E-Ink Optimization
+    var eInkSupportEnabled by remember { mutableStateOf(settings.eInkSupportEnabled) }
     var eInkDisableOverscroll by remember { mutableStateOf(settings.eInkDisableOverscroll) }
     var eInkPageButtonsEnabled by remember { mutableStateOf(settings.eInkPageButtonsEnabled) }
     var eInkReaderPagedScroll by remember { mutableStateOf(settings.eInkReaderPagedScroll) }
@@ -207,13 +208,79 @@ fun SettingsScreen(
                             onClick = { currentSubScreen = SettingsSubScreen.READER }
                         )
 
-                        // 3. Cài đặt E-Ink
-                        SettingsMenuItem(
-                            title = "Tối ưu hóa E-Ink",
-                            subtitle = "Chống lưu ảnh • Nút nhảy trang • Màu Kaleido 3 (Bigme) • Chuyển chương • Khử bóng ma",
-                            icon = Icons.Default.Tune,
-                            onClick = { currentSubScreen = SettingsSubScreen.EINK }
-                        )
+                        // Công tắc: Hỗ trợ màn hình E-Ink
+                        Card(
+                            shape = RoundedCornerShape(4.dp),
+                            colors = CardDefaults.cardColors(containerColor = EInkWhite),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EInkBorder),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val newVal = !eInkSupportEnabled
+                                    eInkSupportEnabled = newVal
+                                    settings.eInkSupportEnabled = newVal
+                                    if (!newVal && currentSubScreen == SettingsSubScreen.EINK) {
+                                        currentSubScreen = SettingsSubScreen.MENU
+                                    }
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f).padding(end = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.TabletAndroid,
+                                        contentDescription = null,
+                                        tint = EInkBlack,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text(
+                                            text = "Hỗ trợ màn hình E-Ink",
+                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        )
+                                        Text(
+                                            text = if (eInkSupportEnabled) "Đang bật tối ưu cho máy đọc sách E-Ink (Bigme, Boox, v.v.)" else "Đang tắt (tối ưu cho điện thoại / máy tính bảng LCD / OLED)",
+                                            style = MaterialTheme.typography.bodySmall.copy(color = EInkDarkGray, fontSize = 11.sp)
+                                        )
+                                    }
+                                }
+                                Switch(
+                                    checked = eInkSupportEnabled,
+                                    onCheckedChange = {
+                                        eInkSupportEnabled = it
+                                        settings.eInkSupportEnabled = it
+                                        if (!it && currentSubScreen == SettingsSubScreen.EINK) {
+                                            currentSubScreen = SettingsSubScreen.MENU
+                                        }
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = EInkWhite,
+                                        checkedTrackColor = EInkBlack,
+                                        uncheckedThumbColor = EInkDarkGray,
+                                        uncheckedTrackColor = EInkSurface
+                                    )
+                                )
+                            }
+                        }
+
+                        // 3. Cài đặt E-Ink (Chỉ hiển thị nếu bật hỗ trợ E-Ink)
+                        if (eInkSupportEnabled) {
+                            SettingsMenuItem(
+                                title = "Tối ưu hóa E-Ink",
+                                subtitle = "Chống lưu ảnh • Nút nhảy trang • Màu Kaleido 3 (Bigme) • Chuyển chương • Khử bóng ma",
+                                icon = Icons.Default.Tune,
+                                onClick = { currentSubScreen = SettingsSubScreen.EINK }
+                            )
+                        }
 
                         // 4. Credit & Giới thiệu
                         SettingsMenuItem(
@@ -245,10 +312,14 @@ fun SettingsScreen(
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text("Phần cứng thiết bị:", fontSize = 11.sp, color = EInkDarkGray)
                                         Text(
-                                            text = if (isBigme) "✓ Bigme B751C / B751C S (Màn hình màu Kaleido 3)" else "Thiết bị E-Ink tiêu chuẩn (Carta B&W)",
+                                            text = if (eInkSupportEnabled) {
+                                                if (isBigme) "✓ Bigme B751C / B751C S (Màn hình màu Kaleido 3)" else "Thiết bị E-Ink tiêu chuẩn (Carta B&W)"
+                                            } else {
+                                                "Màn hình thông thường (Đã tắt tối ưu E-Ink)"
+                                            },
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 13.sp,
-                                            color = if (isBigme) Color(0xFF006600) else EInkBlack
+                                            color = if (eInkSupportEnabled && isBigme) Color(0xFF006600) else EInkBlack
                                         )
                                     }
                                 }
@@ -257,22 +328,24 @@ fun SettingsScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Button(
-                                        onClick = {
-                                            EInkHelper.triggerFullEInkRefresh(
-                                                scope = coroutineScope,
-                                                view = localView,
-                                                context = context,
-                                                onFlashStateChange = { isScreenFlashRefreshing = it }
-                                            )
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = EInkBlack, contentColor = EInkWhite),
-                                        shape = RoundedCornerShape(2.dp),
-                                        modifier = Modifier.weight(1f).height(36.dp)
-                                    ) {
-                                        Icon(Icons.Default.Refresh, contentDescription = null, tint = EInkWhite, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("LÀM MỚI E-INK", color = EInkWhite, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    if (eInkSupportEnabled) {
+                                        Button(
+                                            onClick = {
+                                                EInkHelper.triggerFullEInkRefresh(
+                                                    scope = coroutineScope,
+                                                    view = localView,
+                                                    context = context,
+                                                    onFlashStateChange = { isScreenFlashRefreshing = it }
+                                                )
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = EInkBlack, contentColor = EInkWhite),
+                                            shape = RoundedCornerShape(2.dp),
+                                            modifier = Modifier.weight(1f).height(36.dp)
+                                        ) {
+                                            Icon(Icons.Default.Refresh, contentDescription = null, tint = EInkWhite, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("LÀM MỚI E-INK", color = EInkWhite, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        }
                                     }
 
                                     OutlinedButton(
@@ -298,7 +371,7 @@ fun SettingsScreen(
                                         enabled = !isCheckingUpdate,
                                         shape = RoundedCornerShape(2.dp),
                                         border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
-                                        modifier = Modifier.weight(1f).height(36.dp)
+                                        modifier = (if (eInkSupportEnabled) Modifier.weight(1f) else Modifier.fillMaxWidth()).height(36.dp)
                                     ) {
                                         Text(if (isCheckingUpdate) "Đang check..." else "CẬP NHẬT", color = EInkBlack, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                     }
@@ -318,7 +391,7 @@ fun SettingsScreen(
 
                         // Footer phiên bản
                         Text(
-                            text = "InkDex Manga Reader v1.3 • Phiên bản tối ưu E-Ink & Bigme Kaleido 3",
+                            text = if (eInkSupportEnabled) "InkDex Manga Reader v1.3 • Phiên bản tối ưu E-Ink & Bigme Kaleido 3" else "InkDex Manga Reader v1.3 • Chế độ màn hình tiêu chuẩn",
                             fontSize = 11.sp,
                             color = EInkDarkGray,
                             textAlign = TextAlign.Center,
@@ -1185,6 +1258,11 @@ fun SettingsScreen(
                 // MỤC 6: TỐI ƯU HÓA MÀN HÌNH E-INK
                 // ==========================================
                 SettingsSubScreen.EINK -> {
+                    if (!eInkSupportEnabled) {
+                        LaunchedEffect(Unit) {
+                            currentSubScreen = SettingsSubScreen.MENU
+                        }
+                    }
                     Column(
                         modifier = Modifier
                             .fillMaxSize()

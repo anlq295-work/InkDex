@@ -124,21 +124,37 @@ class SettingsManager(context: Context) {
         set(value) = prefs.edit().putString("app_lock_pin", value.trim()).apply()
 
     // 5. Tối ưu hóa Màn hình E-Ink chống bóng ma (Anti-Ghosting)
+    var eInkSupportEnabled: Boolean
+        get() = prefs.getBoolean("eink_support_enabled", true)
+        set(value) = prefs.edit().putBoolean("eink_support_enabled", value).apply()
+
     var eInkDisableOverscroll: Boolean
-        get() = prefs.getBoolean("eink_disable_overscroll", true)
+        get() = if (eInkSupportEnabled) prefs.getBoolean("eink_disable_overscroll", true) else false
         set(value) = prefs.edit().putBoolean("eink_disable_overscroll", value).apply()
 
+    val rawEInkDisableOverscroll: Boolean
+        get() = prefs.getBoolean("eink_disable_overscroll", true)
+
     var eInkPageButtonsEnabled: Boolean
-        get() = prefs.getBoolean("eink_page_buttons_enabled", true)
+        get() = if (eInkSupportEnabled) prefs.getBoolean("eink_page_buttons_enabled", true) else false
         set(value) = prefs.edit().putBoolean("eink_page_buttons_enabled", value).apply()
 
+    val rawEInkPageButtonsEnabled: Boolean
+        get() = prefs.getBoolean("eink_page_buttons_enabled", true)
+
     var eInkReaderPagedScroll: Boolean
-        get() = prefs.getBoolean("eink_reader_paged_scroll", true)
+        get() = if (eInkSupportEnabled) prefs.getBoolean("eink_reader_paged_scroll", true) else false
         set(value) = prefs.edit().putBoolean("eink_reader_paged_scroll", value).apply()
 
+    val rawEInkReaderPagedScroll: Boolean
+        get() = prefs.getBoolean("eink_reader_paged_scroll", true)
+
     var eInkAutoRefreshInterval: Int
-        get() = prefs.getInt("eink_auto_refresh_interval", 5)
+        get() = if (eInkSupportEnabled) prefs.getInt("eink_auto_refresh_interval", 5) else 0
         set(value) = prefs.edit().putInt("eink_auto_refresh_interval", value).apply()
+
+    val rawEInkAutoRefreshInterval: Int
+        get() = prefs.getInt("eink_auto_refresh_interval", 5)
 
     // 6. Tự động chuyển chương kế khi đọc hết chương
     var autoNextChapter: Boolean

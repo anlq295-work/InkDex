@@ -65,7 +65,7 @@ class MainActivity : ComponentActivity() {
             var disableOverscroll by remember { mutableStateOf(repository.settingsManager.eInkDisableOverscroll) }
             DisposableEffect(Unit) {
                 val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-                    if (key == "eink_disable_overscroll") {
+                    if (key == "eink_disable_overscroll" || key == "eink_support_enabled") {
                         disableOverscroll = repository.settingsManager.eInkDisableOverscroll
                     }
                 }
