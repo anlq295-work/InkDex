@@ -174,4 +174,60 @@ class NaturalOrderComparatorTest {
         assertEquals("22", chosen.chapter)
         assertEquals("Group A", chosen.group)
     }
+
+    @Test
+    fun testRemoteConfigJsonDecoding() {
+        val jsonStr = """
+            {
+                "config_version": 1,
+                "updated_at": "2026-09-13T12:00:00Z",
+                "system_notice": {
+                    "enabled": true,
+                    "title": "Thông báo",
+                    "message": "Hệ thống hoạt động bình thường"
+                },
+                "network": {
+                    "backup_proxy_urls": ["https://proxy1.example.com", "https://proxy2.example.com"],
+                    "doh_providers": {"cloudflare": "1.1.1.1"}
+                },
+                "chapter_rules": {
+                    "extra_prefixes": ["hồi", "hồi thứ", "phần", "tiết", "màn", "act"],
+                    "custom_regex": null
+                }
+            }
+        """.trimIndent()
+
+        val json = kotlinx.serialization.json.Json {
+            ignoreUnknownKeys = true
+            coerceInputValues = true
+            isLenient = true
+        }
+
+        val config = json.decodeFromString<com.eink.reader.data.model.RemoteConfig>(jsonStr)
+        assertEquals(1, config.configVersion)
+        assertTrue(config.systemNotice.enabled)
+        assertEquals("Thông báo", config.systemNotice.title)
+        assertEquals(2, config.network.backupProxyUrls.size)
+        assertTrue(config.chapterRules.extraPrefixes.contains("hồi"))
+    }
+
+    @Test
+    fun testDynamicExtraPrefixesParsing() {
+        // Trước khi nạp extraPrefixes
+        NaturalOrderComparator.extraPrefixes = emptyList()
+        val beforeParse = NaturalOrderComparator.parseChapterNumber("Hồi 10: Đại náo Thiên Cung")
+        // Mặc định không có tiền tố "hồi", regex có thể bắt fallback số 10 hoặc tiền tố mới
+        // Bây giờ gán extraPrefixes từ RemoteConfig
+        NaturalOrderComparator.extraPrefixes = listOf("hồi", "hồi thứ", "phần", "tiết", "màn", "act", "episode")
+
+        assertEquals(10.0f, NaturalOrderComparator.parseChapterNumber("Hồi 10: Đại náo Thiên Cung") ?: 0f, 0.001f)
+        assertEquals(5.5f, NaturalOrderComparator.parseChapterNumber("Hồi thứ 5.5: Ngoại truyện") ?: 0f, 0.001f)
+        assertEquals(3.0f, NaturalOrderComparator.parseChapterNumber("Phần 3: Khởi đầu mới") ?: 0f, 0.001f)
+        assertEquals(12.0f, NaturalOrderComparator.parseChapterNumber("Act 12: Climax") ?: 0f, 0.001f)
+        assertEquals(24.0f, NaturalOrderComparator.parseChapterNumber("Episode 24") ?: 0f, 0.001f)
+
+        // Reset lại để không ảnh hưởng test khác
+        NaturalOrderComparator.extraPrefixes = emptyList()
+    }
 }
+

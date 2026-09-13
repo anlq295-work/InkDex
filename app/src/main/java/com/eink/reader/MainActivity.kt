@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalLibrary
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
@@ -111,6 +113,8 @@ class MainActivity : ComponentActivity() {
 
                     val isBottomBarVisible = currentRoute in listOf("home", "library", "settings")
                     var startupUpdateInfo by remember { mutableStateOf<AppReleaseInfo?>(null) }
+                    val remoteConfig by repository.remoteConfigManager.configFlow.collectAsState()
+                    var dismissedNoticeMessage by rememberSaveable { mutableStateOf("") }
                     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
                     val coroutineScope = rememberCoroutineScope()
                     var lastUpdateCheckTime by rememberSaveable { mutableLongStateOf(0L) }
@@ -124,6 +128,8 @@ class MainActivity : ComponentActivity() {
                                     lastUpdateCheckTime = now
                                     coroutineScope.launch {
                                         delay(1500)
+                                        // Tự động đồng bộ Remote Config ngầm định kỳ (nếu > 6h)
+                                        repository.remoteConfigManager.syncRemoteConfig(force = false)
                                         val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.4.2")
                                         res.onSuccess { info ->
                                             if (info.isNewer) {
@@ -230,12 +236,65 @@ class MainActivity : ComponentActivity() {
                     },
                     containerColor = EInkWhite
                 ) { innerPadding ->
-                    Box(
+                    Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        NavHost(
+                        if (!isReaderActive && remoteConfig.systemNotice.enabled && remoteConfig.systemNotice.message.isNotBlank() && dismissedNoticeMessage != remoteConfig.systemNotice.message) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+                                colors = CardDefaults.cardColors(containerColor = EInkSurface),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp),
+                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        modifier = Modifier.weight(1f),
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(Icons.Default.Info, contentDescription = null, tint = EInkBlack, modifier = Modifier.size(18.dp))
+                                        Column {
+                                            if (remoteConfig.systemNotice.title.isNotBlank()) {
+                                                Text(
+                                                    text = remoteConfig.systemNotice.title,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp,
+                                                    color = EInkBlack
+                                                )
+                                            }
+                                            Text(
+                                                text = remoteConfig.systemNotice.message,
+                                                fontSize = 11.sp,
+                                                color = EInkBlack
+                                            )
+                                        }
+                                    }
+                                    IconButton(
+                                        onClick = { dismissedNoticeMessage = remoteConfig.systemNotice.message },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(Icons.Default.Close, contentDescription = "Đóng thông báo", tint = EInkBlack, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        ) {
+                            NavHost(
                             navController = navController,
                             startDestination = "home"
                         ) {
@@ -393,6 +452,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+                }
                 }
             }
         }

@@ -26,7 +26,8 @@ class MangaRepository(
     val settingsManager: SettingsManager,
     val apiService: MangaDexApiService = MangaDexApiService(settingsManager),
     val tagCacheManager: MangaTagCacheManager = MangaTagCacheManager.getInstance(settingsManager.context),
-    val readingHistoryManager: ReadingHistoryManager = ReadingHistoryManager.getInstance(settingsManager.context)
+    val readingHistoryManager: ReadingHistoryManager = ReadingHistoryManager.getInstance(settingsManager.context),
+    val remoteConfigManager: RemoteConfigManager = RemoteConfigManager.getInstance(settingsManager.context)
 ) {
     var homeFeedCache: HomeFeedCache? = null
     var librarySyncCache: LibrarySyncCache? = null

@@ -55,15 +55,36 @@ object NaturalOrderComparator : Comparator<String> {
         compare(f1?.name, f2?.name)
     }
 
+    @Volatile
+    var extraPrefixes: List<String> = emptyList()
+
+    @Volatile
+    var customRegex: String? = null
+
     /**
-     * Trích xuất số chương từ tiêu đề hoặc tên file (ví dụ: Ch.11, Chapter 12, Tập 10, v.v.)
+     * Trích xuất số chương từ tiêu đề hoặc tên file (ví dụ: Ch.11, Chapter 12, Tập 10, Hồi 5, v.v.)
      */
     fun parseChapterNumber(title: String?): Float? {
         if (title.isNullOrBlank()) return null
         val clean = title.trim().replace(',', '.')
         
-        // 1. Ưu tiên tìm tiền tố chương: Ch. 11, Chapter 12, Chap 13, Tập 14...
-        val prefixRegex = Regex("""(?i)(?:^|[\s\[(_-])(?:ch(?:apter)?|c|chap|tập)[\s._-]*([0-9]+(?:\.[0-9]+)?)""")
+        // 0. Nếu có custom regex từ Remote Config, ưu tiên thử trước
+        customRegex?.let { pattern ->
+            try {
+                Regex(pattern).find(clean)?.groupValues?.let { g ->
+                    if (g.size > 1) g[1].toFloatOrNull()?.let { return it }
+                }
+            } catch (_: Exception) {}
+        }
+
+        // 1. Ưu tiên tìm tiền tố chương: Ch. 11, Chapter 12, Chap 13, Tập 14 + các tiền tố từ Remote Config
+        val allPrefixes = if (extraPrefixes.isNotEmpty()) {
+            val escapedExtra = extraPrefixes.joinToString("|") { Regex.escape(it) }
+            "(?:ch(?:apter)?|c|chap|tập|$escapedExtra)"
+        } else {
+            "(?:ch(?:apter)?|c|chap|tập)"
+        }
+        val prefixRegex = Regex("""(?i)(?:^|[\s\[(_-])$allPrefixes[\s._-]*([0-9]+(?:\.[0-9]+)?)""")
         prefixRegex.find(clean)?.groupValues?.get(1)?.toFloatOrNull()?.let { return it }
 
         // 2. Tìm số ở đầu chuỗi hoặc sau dấu phân cách

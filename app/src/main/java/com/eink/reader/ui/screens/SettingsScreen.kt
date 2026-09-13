@@ -145,6 +145,11 @@ fun SettingsScreen(
     var updateCheckResult by remember { mutableStateOf<String?>(null) }
     var availableUpdateInfo by remember { mutableStateOf<AppReleaseInfo?>(null) }
 
+    // State cho Remote Config
+    val remoteConfig by repository.remoteConfigManager.configFlow.collectAsState()
+    var isSyncingRemoteConfig by remember { mutableStateOf(false) }
+    var remoteConfigSyncResult by remember { mutableStateOf<String?>(null) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -390,9 +395,82 @@ fun SettingsScreen(
                             }
                         }
 
+                        // Thẻ: Cập nhật dữ liệu từ xa (Remote Config)
+                        Card(
+                            shape = RoundedCornerShape(4.dp),
+                            colors = CardDefaults.cardColors(containerColor = EInkSurface),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EInkBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Dữ liệu quy tắc từ xa (Remote Config):", fontSize = 11.sp, color = EInkDarkGray)
+                                        Text(
+                                            text = "Data v${remoteConfig.configVersion} • ${remoteConfig.chapterRules.extraPrefixes.size} tiền tố chap",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = EInkBlack
+                                        )
+                                        val lastSync = repository.remoteConfigManager.lastSyncTime
+                                        val lastSyncFormatted = if (lastSync > 0) {
+                                            val sdf = java.text.SimpleDateFormat("HH:mm dd/MM/yyyy", java.util.Locale.getDefault())
+                                            sdf.format(java.util.Date(lastSync))
+                                        } else "Chưa đồng bộ"
+                                        Text(
+                                            text = "Lần đồng bộ: $lastSyncFormatted",
+                                            fontSize = 10.sp,
+                                            color = EInkDarkGray
+                                        )
+                                    }
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            isSyncingRemoteConfig = true
+                                            remoteConfigSyncResult = "Đang đồng bộ..."
+                                            val res = repository.remoteConfigManager.syncRemoteConfig(force = true)
+                                            isSyncingRemoteConfig = false
+                                            res.onSuccess { cfg ->
+                                                remoteConfigSyncResult = "✓ Đã cập nhật data v${cfg.configVersion} thành công!"
+                                            }.onFailure { err ->
+                                                remoteConfigSyncResult = "❌ Lỗi: ${err.localizedMessage}"
+                                            }
+                                        }
+                                    },
+                                    enabled = !isSyncingRemoteConfig,
+                                    shape = RoundedCornerShape(2.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
+                                    modifier = Modifier.fillMaxWidth().height(36.dp)
+                                ) {
+                                    Icon(Icons.Default.Sync, contentDescription = null, tint = EInkBlack, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(if (isSyncingRemoteConfig) "Đang tải dữ liệu..." else "ĐỒNG BỘ DATA TỪ XA", color = EInkBlack, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                remoteConfigSyncResult?.let {
+                                    Text(
+                                        text = it,
+                                        fontSize = 11.sp,
+                                        color = EInkDarkGray,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+                        }
+
                         // Footer phiên bản
                         Text(
-                            text = if (eInkSupportEnabled) "InkDex Manga Reader v1.4 • Phiên bản tối ưu E-Ink & Bigme Kaleido 3" else "InkDex Manga Reader v1.4 • Chế độ màn hình tiêu chuẩn",
+                            text = if (eInkSupportEnabled) "InkDex Manga Reader v1.4.2 • Phiên bản tối ưu E-Ink & Bigme Kaleido 3" else "InkDex Manga Reader v1.4.2 • Chế độ màn hình tiêu chuẩn",
                             fontSize = 11.sp,
                             color = EInkDarkGray,
                             textAlign = TextAlign.Center,

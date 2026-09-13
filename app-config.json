@@ -1,0 +1,28 @@
+{
+  "config_version": 1,
+  "updated_at": "2026-09-13",
+  "system_notice": {
+    "enabled": false,
+    "title": "Thông báo hệ thống",
+    "message": "Hệ thống đang hoạt động bình thường.",
+    "type": "info"
+  },
+  "network": {
+    "default_worker_url": "https://mangadex-proxy.an-lq295-work.workers.dev",
+    "backup_proxy_urls": [],
+    "doh_providers": {
+      "cloudflare": "1.1.1.1",
+      "google": "8.8.8.8",
+      "adguard": "94.140.14.14"
+    }
+  },
+  "chapter_rules": {
+    "extra_prefixes": ["hồi", "phần", "act", "scene", "ep", "side", "omake", "extra"],
+    "custom_regex": null
+  },
+  "eink_optimization": {
+    "kaleido3_saturation": 1.75,
+    "kaleido3_contrast": 1.15,
+    "kaleido3_brightness_boost": 20.0
+  }
+}
