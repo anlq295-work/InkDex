@@ -92,7 +92,10 @@ class MainActivity : ComponentActivity() {
             }
 
             val patchVersion by com.eink.reader.util.I18n.patchVersionFlow.collectAsState()
-            val appStrings = remember(appLanguage, patchVersion) { com.eink.reader.util.I18n.getStrings(appLanguage) }
+            val appStrings = remember(appLanguage, patchVersion) {
+                com.eink.reader.util.I18n.currentLanguageCode = appLanguage
+                com.eink.reader.util.I18n.getStrings(appLanguage)
+            }
 
             val systemInDark = androidx.compose.foundation.isSystemInDarkTheme()
             val isAppDark = when {

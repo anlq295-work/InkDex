@@ -39,13 +39,22 @@ import com.eink.reader.util.AppUpdateHelper
 import com.eink.reader.util.EInkHelper
 import kotlinx.coroutines.launch
 
-enum class SettingsSubScreen(val title: String) {
-    MENU("CÀI ĐẶT HỆ THỐNG"),
-    PERSONAL("CÀI ĐẶT CÁ NHÂN"),
-    LANGUAGE("NGÔN NGỮ & HIỂN THỊ"),
-    READER("CÀI ĐẶT ĐỌC & LƯU TRỮ"),
-    EINK("TỐI ƯU HÓA MÀN HÌNH E-INK"),
-    CREDIT("CREDIT & GIỚI THIỆU")
+enum class SettingsSubScreen {
+    MENU,
+    PERSONAL,
+    LANGUAGE,
+    READER,
+    EINK,
+    CREDIT;
+
+    fun getTitle(strings: com.eink.reader.util.AppStrings): String = when (this) {
+        MENU -> strings.settingsTitle
+        PERSONAL -> strings.personalSettings
+        LANGUAGE -> strings.languageSettings
+        READER -> strings.readerSettings
+        EINK -> strings.eInkOptimize
+        CREDIT -> strings.creditAbout
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -163,7 +172,7 @@ fun SettingsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = currentSubScreen.title,
+                        text = currentSubScreen.getTitle(strings),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 },
@@ -172,7 +181,7 @@ fun SettingsScreen(
                         IconButton(onClick = { currentSubScreen = SettingsSubScreen.MENU }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Quay lại Menu",
+                                contentDescription = strings.back,
                                 tint = EInkBlack
                             )
                         }
@@ -202,14 +211,14 @@ fun SettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Text(
-                            text = "DANH MỤC CÀI ĐẶT",
+                            text = strings.settingsCategoryMenu,
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = EInkDarkGray)
                         )
 
                         // 1. Cài đặt cá nhân
                         SettingsMenuItem(
-                            title = "Cài đặt cá nhân",
-                            subtitle = "Tài khoản MangaDex • Phân loại nội dung • Khóa PIN • DNS & Proxy Bypass",
+                            title = strings.personalSettings,
+                            subtitle = strings.personalSubtitle,
                             icon = Icons.Default.AccountCircle,
                             onClick = { currentSubScreen = SettingsSubScreen.PERSONAL }
                         )
@@ -224,8 +233,8 @@ fun SettingsScreen(
 
                         // 2. Cài đặt đọc
                         SettingsMenuItem(
-                            title = "Cài đặt đọc & Lưu trữ",
-                            subtitle = "Hướng đọc Manga • Tải trước trang • Phím vật lý • Quản lý thẻ nhớ/bộ nhớ",
+                            title = strings.readerSettings,
+                            subtitle = strings.readerSubtitle,
                             icon = Icons.Default.Book,
                             onClick = { currentSubScreen = SettingsSubScreen.READER }
                         )
@@ -266,11 +275,11 @@ fun SettingsScreen(
                                     )
                                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         Text(
-                                            text = "Hỗ trợ màn hình E-Ink",
+                                            text = strings.eInkSupport,
                                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                         )
                                         Text(
-                                            text = if (eInkSupportEnabled) "Đang bật tối ưu cho máy đọc sách E-Ink (Bigme, Boox, v.v.)" else "Đang tắt (tối ưu cho điện thoại / máy tính bảng LCD / OLED)",
+                                            text = if (eInkSupportEnabled) strings.eInkSupportEnabledDesc else strings.eInkSupportDisabledDesc,
                                             style = MaterialTheme.typography.bodySmall.copy(color = EInkDarkGray, fontSize = 11.sp)
                                         )
                                     }
@@ -297,8 +306,8 @@ fun SettingsScreen(
                         // 3. Cài đặt E-Ink (Chỉ hiển thị nếu bật hỗ trợ E-Ink)
                         if (eInkSupportEnabled) {
                             SettingsMenuItem(
-                                title = "Tối ưu hóa E-Ink",
-                                subtitle = "Chống lưu ảnh • Nút nhảy trang • Màu Kaleido 3 (Bigme) • Chuyển chương • Khử bóng ma",
+                                title = strings.eInkOptimize,
+                                subtitle = strings.eInkOptimizeSubtitle,
                                 icon = Icons.Default.Tune,
                                 onClick = { currentSubScreen = SettingsSubScreen.EINK }
                             )
@@ -306,8 +315,8 @@ fun SettingsScreen(
 
                         // 4. Credit & Giới thiệu
                         SettingsMenuItem(
-                            title = "Credit & Giới thiệu",
-                            subtitle = "InkDex v1.6.1 • Bigme B751C S • MangaDex API",
+                            title = strings.creditAbout,
+                            subtitle = strings.creditSubtitle,
                             icon = Icons.Default.Info,
                             onClick = { currentSubScreen = SettingsSubScreen.CREDIT }
                         )
@@ -332,7 +341,7 @@ fun SettingsScreen(
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("Phần cứng thiết bị:", fontSize = 11.sp, color = EInkDarkGray)
+                                        Text(strings.hardwareInfo, fontSize = 11.sp, color = EInkDarkGray)
                                         Text(
                                             text = if (eInkSupportEnabled) {
                                                 if (isBigme) "✓ Bigme B751C / B751C S (Màn hình màu Kaleido 3)" else "Thiết bị E-Ink tiêu chuẩn (Carta B&W)"
@@ -366,7 +375,7 @@ fun SettingsScreen(
                                         ) {
                                             Icon(Icons.Default.Refresh, contentDescription = null, tint = EInkWhite, modifier = Modifier.size(16.dp))
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text("LÀM MỚI E-INK", color = EInkWhite, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                            Text(strings.refreshScreen.uppercase(), color = EInkWhite, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                                         }
                                     }
 
@@ -375,14 +384,14 @@ fun SettingsScreen(
                                             coroutineScope.launch {
                                                 isCheckingUpdate = true
                                                 updateCheckResult = "Đang kiểm tra..."
-                                                val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.6.1")
+                                                val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.6.2")
                                                 res.onSuccess { info ->
                                                     isCheckingUpdate = false
                                                     if (info.isNewer) {
                                                         availableUpdateInfo = info
                                                         updateCheckResult = "🎉 Có bản mới: ${info.tagName}!"
                                                     } else {
-                                                        updateCheckResult = "✓ Đang ở bản mới nhất v1.6.1"
+                                                        updateCheckResult = "✓ Đang ở bản mới nhất v1.6.2"
                                                     }
                                                 }.onFailure { err ->
                                                     isCheckingUpdate = false
@@ -499,7 +508,7 @@ fun SettingsScreen(
 
                         // Footer phiên bản
                         Text(
-                            text = if (eInkSupportEnabled) "InkDex Manga Reader v1.6.1 • Phiên bản tối ưu E-Ink & Bigme Kaleido 3" else "InkDex Manga Reader v1.6.1 • Chế độ màn hình tiêu chuẩn",
+                            text = if (eInkSupportEnabled) "InkDex Manga Reader v1.6.2 • Phiên bản tối ưu E-Ink & Bigme Kaleido 3" else "InkDex Manga Reader v1.6.2 • Chế độ màn hình tiêu chuẩn",
                             fontSize = 11.sp,
                             color = EInkDarkGray,
                             textAlign = TextAlign.Center,
@@ -1196,6 +1205,8 @@ fun SettingsScreen(
                                             .clickable {
                                                 currentAppLanguage = lang.code
                                                 settings.appLanguage = lang.code
+                                                currentPrefLanguage = lang.code
+                                                settings.preferredChapterLanguage = lang.code
                                             }
                                             .padding(horizontal = 12.dp, vertical = 10.dp),
                                         verticalAlignment = Alignment.CenterVertically,
@@ -1219,6 +1230,8 @@ fun SettingsScreen(
                                             onClick = {
                                                 currentAppLanguage = lang.code
                                                 settings.appLanguage = lang.code
+                                                currentPrefLanguage = lang.code
+                                                settings.preferredChapterLanguage = lang.code
                                             },
                                             colors = RadioButtonDefaults.colors(
                                                 selectedColor = EInkBlack,
@@ -1779,7 +1792,7 @@ fun SettingsScreen(
                                     color = EInkBlack
                                 )
                                 Text(
-                                    text = "Phiên bản 1.6.1 (Build 12) • Đa ngôn ngữ (VI, EN, FR, ES, ZH, KO) • Tự động Update In-App",
+                                    text = "Phiên bản 1.6.2 (Build 13) • Đa ngôn ngữ (VI, EN, FR, ES, ZH, KO) • Tự động Update In-App",
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp,
                                     color = EInkBlack
@@ -2059,7 +2072,7 @@ fun SettingsScreen(
     availableUpdateInfo?.let { info ->
         UpdateDialog(
             releaseInfo = info,
-            currentVersion = "1.6.1",
+            currentVersion = "1.6.2",
             onDismiss = { availableUpdateInfo = null }
         )
     }

@@ -218,7 +218,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         val isPrivateBadge = !isSearching && isPornographic
-                        val badgeText = if (isSearching) "TÌM KIẾM" else if (isPornographic) "PRIVATE" else "KHÁM PHÁ"
+                        val badgeText = if (isSearching) strings.badgeSearch else if (isPornographic) "PRIVATE" else strings.badgeExplore
                         Text(
                             text = badgeText,
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
@@ -244,7 +244,7 @@ fun HomeScreen(
                                 .size(36.dp)
                                 .border(1.dp, EInkBorder, RoundedCornerShape(4.dp))
                         ) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Làm mới", tint = EInkBlack)
+                            Icon(Icons.Default.Refresh, contentDescription = strings.refresh, tint = EInkBlack)
                         }
                     }
                 }
@@ -309,14 +309,14 @@ fun HomeScreen(
                 if (isSearchLoading) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = "[ ĐANG TÌM KIẾM MANGADEX... ]",
+                            text = strings.searchLoading,
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.border(1.dp, EInkBorder, RoundedCornerShape(4.dp)).padding(16.dp)
                         )
                     }
                 } else if (searchResults.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = "Không tìm thấy truyện nào phù hợp.", style = MaterialTheme.typography.bodyLarge)
+                        Text(text = strings.searchEmpty, style = MaterialTheme.typography.bodyLarge)
                     }
                 } else {
                     LazyVerticalGrid(
@@ -341,7 +341,7 @@ fun HomeScreen(
                 if (isFeedsLoading) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = "[ ĐANG TẢI CÁC ĐỀ MỤC TRUYỆN... ]",
+                            text = strings.feedLoading,
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.border(1.dp, EInkBorder, RoundedCornerShape(4.dp)).padding(16.dp)
                         )
@@ -352,7 +352,7 @@ fun HomeScreen(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(text = "Lỗi kết nối: $feedsError", color = Color.Red, style = MaterialTheme.typography.bodyLarge)
+                        Text(text = "${strings.feedError}: $feedsError", color = Color.Red, style = MaterialTheme.typography.bodyLarge)
                         Spacer(modifier = Modifier.height(12.dp))
                         OutlinedButton(
                             onClick = { loadFeeds(force = true) },
@@ -361,7 +361,7 @@ fun HomeScreen(
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null, tint = EInkBlack)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Thử lại", color = EInkBlack, fontWeight = FontWeight.Bold)
+                            Text(strings.retry, color = EInkBlack, fontWeight = FontWeight.Bold)
                         }
                     }
                 } else {

@@ -105,11 +105,13 @@ fun DetailScreen(
             repository.getMangaDetails(mangaId).onSuccess { details ->
                 manga = details
                 val available = details.attributes.availableTranslatedLanguages
+                val appLang = repository.settingsManager.appLanguage
                 if (available.isNotEmpty() && !available.contains(selectedLanguage)) {
                     targetLang = when {
                         available.contains(prefLang) -> prefLang
-                        available.contains("vi") -> "vi"
+                        available.contains(appLang) -> appLang
                         available.contains("en") -> "en"
+                        available.contains("vi") -> "vi"
                         else -> available.first()
                     }
                     selectedLanguage = targetLang
@@ -573,7 +575,7 @@ fun MangaInfoContent(
                 }
                 manga.attributes.year?.let {
                     Text(
-                        text = "Năm phát hành: $it",
+                        text = "${strings.releaseYear}: $it",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -684,7 +686,7 @@ fun MangaInfoContent(
         val description = manga.getDisplayDescription(strings.langCode)
         if (description.isNotBlank()) {
             Text(
-                text = "NỘI DUNG TÓM TẮT",
+                text = strings.summary,
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
             )
             Spacer(modifier = Modifier.height(4.dp))
@@ -792,7 +794,7 @@ fun ChapterHeaderFilter(
                     modifier = Modifier.height(32.dp)
                 ) {
                     Text(
-                        text = "🌐 Khác ▼",
+                        text = "🌐 ${strings.more} ▼",
                         color = EInkBlack,
                         style = MaterialTheme.typography.labelSmall
                     )
@@ -835,7 +837,7 @@ fun ChapterHeaderFilter(
             containerColor = EInkWhite,
             title = {
                 Text(
-                    text = "CHỌN NGÔN NGỮ CHƯƠNG",
+                    text = strings.selectChapterLanguage,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = EInkBlack
                 )
@@ -870,7 +872,7 @@ fun ChapterHeaderFilter(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "🌐 Tất cả ngôn ngữ (Hiển thị toàn bộ)",
+                                    text = "🌐 ${strings.allLanguagesOption}",
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                     fontSize = 13.sp,
                                     color = EInkBlack
@@ -1017,6 +1019,7 @@ fun ChapterRow(
     onChapterClick: (String, String, Int) -> Unit,
     onDownloadClick: () -> Unit
 ) {
+    val strings = com.eink.reader.util.LocalAppStrings.current
     val isDownloaded = remember(manga, chapter, downloadStatus) {
         if (manga != null) downloadManager.isChapterDownloaded(manga.displayTitle, chapter.displayTitle) else false
     } || (downloadStatus is DownloadStatus.Downloaded)
@@ -1050,7 +1053,7 @@ fun ChapterRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (isLastRead) {
                     Text(
-                        text = "ĐANG ĐỌC",
+                        text = strings.readingNow,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = EInkWhite,
@@ -1061,7 +1064,7 @@ fun ChapterRow(
                     Spacer(modifier = Modifier.width(6.dp))
                 } else if (isRead) {
                     Text(
-                        text = "✓ ĐÃ ĐỌC",
+                        text = "✓ ${strings.readChapter}",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
                         color = EInkDarkGray,
@@ -1090,7 +1093,7 @@ fun ChapterRow(
             }
             chapter.scanlationGroup?.let { group ->
                 Text(
-                    text = "Dịch bởi: $group",
+                    text = "${strings.translatedBy}: $group",
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp, color = Color.Gray)
                 )
             }
@@ -1123,7 +1126,7 @@ fun ChapterRow(
                 is DownloadStatus.Downloaded -> {
                     Icon(
                         Icons.Default.CheckCircle,
-                        contentDescription = "Đã tải offline",
+                        contentDescription = strings.downloadedOffline,
                         tint = EInkBlack,
                         modifier = Modifier.size(24.dp)
                     )

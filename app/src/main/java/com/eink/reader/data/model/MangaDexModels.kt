@@ -55,34 +55,38 @@ data class MangaItem(
     val attributes: MangaAttributes = MangaAttributes(),
     val relationships: List<Relationship> = emptyList()
 ) {
-    fun getDisplayTitle(preferredLang: String = "vi"): String {
+    fun getDisplayTitle(preferredLang: String = com.eink.reader.util.I18n.currentLanguageCode): String {
         // 1. Tiêu đề theo ngôn ngữ ưu tiên người dùng
         val prefTitle = attributes.title[preferredLang]?.takeIf { it.isNotBlank() }
             ?: attributes.altTitles.firstNotNullOfOrNull { it[preferredLang]?.takeIf { s -> s.isNotBlank() } }
         if (!prefTitle.isNullOrBlank()) return prefTitle
 
         // 2. Tiếng Anh (nếu ngôn ngữ chọn không phải en)
-        val enTitle = attributes.title["en"]?.takeIf { it.isNotBlank() }
-            ?: attributes.altTitles.firstNotNullOfOrNull { it["en"]?.takeIf { s -> s.isNotBlank() } }
-        if (!enTitle.isNullOrBlank()) return enTitle
+        if (preferredLang != "en") {
+            val enTitle = attributes.title["en"]?.takeIf { it.isNotBlank() }
+                ?: attributes.altTitles.firstNotNullOfOrNull { it["en"]?.takeIf { s -> s.isNotBlank() } }
+            if (!enTitle.isNullOrBlank()) return enTitle
+        }
 
         // 3. Tiếng Việt (nếu ngôn ngữ chọn không phải vi)
-        val viTitle = attributes.title["vi"]?.takeIf { it.isNotBlank() }
-            ?: attributes.altTitles.firstNotNullOfOrNull { it["vi"]?.takeIf { s -> s.isNotBlank() } }
-        if (!viTitle.isNullOrBlank()) return viTitle
+        if (preferredLang != "vi") {
+            val viTitle = attributes.title["vi"]?.takeIf { it.isNotBlank() }
+                ?: attributes.altTitles.firstNotNullOfOrNull { it["vi"]?.takeIf { s -> s.isNotBlank() } }
+            if (!viTitle.isNullOrBlank()) return viTitle
+        }
 
-        // 4. Phiên âm Nhật (ja-ro)
-        val jaRoTitle = attributes.title["ja-ro"]?.takeIf { it.isNotBlank() }
-            ?: attributes.altTitles.firstNotNullOfOrNull { it["ja-ro"]?.takeIf { s -> s.isNotBlank() } }
-        if (!jaRoTitle.isNullOrBlank()) return jaRoTitle
-
-        // 5. Tiêu đề theo ngôn ngữ gốc của truyện (ví dụ: "ja", "ko", "zh", "fr", "es", "ru"...)
+        // 4. Tiêu đề theo ngôn ngữ gốc của truyện (ví dụ: "ja", "ko", "zh", "fr", "es", "ru"...)
         val origLang = attributes.originalLanguage
         if (!origLang.isNullOrBlank()) {
             val origTitle = attributes.title[origLang]?.takeIf { it.isNotBlank() }
                 ?: attributes.altTitles.firstNotNullOfOrNull { it[origLang]?.takeIf { s -> s.isNotBlank() } }
             if (!origTitle.isNullOrBlank()) return origTitle
         }
+
+        // 5. Phiên âm Nhật (ja-ro)
+        val jaRoTitle = attributes.title["ja-ro"]?.takeIf { it.isNotBlank() }
+            ?: attributes.altTitles.firstNotNullOfOrNull { it["ja-ro"]?.takeIf { s -> s.isNotBlank() } }
+        if (!jaRoTitle.isNullOrBlank()) return jaRoTitle
 
         // 6. Tiêu đề đầu tiên bất kỳ trong map title chính
         val firstTitle = attributes.title.values.firstOrNull { it.isNotBlank() }
@@ -98,22 +102,26 @@ data class MangaItem(
     }
 
     val displayTitle: String
-        get() = getDisplayTitle("vi")
+        get() = getDisplayTitle(com.eink.reader.util.I18n.currentLanguageCode)
 
-    fun getDisplayDescription(preferredLang: String = "vi"): String {
+    fun getDisplayDescription(preferredLang: String = com.eink.reader.util.I18n.currentLanguageCode): String {
         val pref = attributes.description[preferredLang]?.takeIf { it.isNotBlank() }
         if (!pref.isNullOrBlank()) return pref
-        val en = attributes.description["en"]?.takeIf { it.isNotBlank() }
-        if (!en.isNullOrBlank()) return en
-        val vi = attributes.description["vi"]?.takeIf { it.isNotBlank() }
-        if (!vi.isNullOrBlank()) return vi
+        if (preferredLang != "en") {
+            val en = attributes.description["en"]?.takeIf { it.isNotBlank() }
+            if (!en.isNullOrBlank()) return en
+        }
+        if (preferredLang != "vi") {
+            val vi = attributes.description["vi"]?.takeIf { it.isNotBlank() }
+            if (!vi.isNullOrBlank()) return vi
+        }
         val orig = attributes.originalLanguage?.let { attributes.description[it]?.takeIf { s -> s.isNotBlank() } }
         if (!orig.isNullOrBlank()) return orig
         return attributes.description.values.firstOrNull { it.isNotBlank() } ?: ""
     }
 
     val displayDescription: String
-        get() = getDisplayDescription("vi")
+        get() = getDisplayDescription(com.eink.reader.util.I18n.currentLanguageCode)
 
     val coverFileName: String?
         get() = relationships.firstOrNull { it.type == "cover_art" && !it.attributes?.fileName.isNullOrBlank() }?.attributes?.fileName

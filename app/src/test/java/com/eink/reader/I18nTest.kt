@@ -1,14 +1,21 @@
-﻿package com.eink.reader
+package com.eink.reader
 
 import com.eink.reader.data.model.MangaAttributes
 import com.eink.reader.data.model.MangaItem
 import com.eink.reader.util.AppLanguage
 import com.eink.reader.util.I18n
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 
 class I18nTest {
+
+    @After
+    fun tearDown() {
+        I18n.currentLanguageCode = "vi"
+        I18n.clearPatch()
+    }
 
     @Test
     fun testAllLanguagesHaveValidStrings() {

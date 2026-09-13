@@ -46,6 +46,7 @@ fun LibraryScreen(
     onSettingsClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val strings = com.eink.reader.util.LocalAppStrings.current
     val downloadManager = remember { DownloadManager.getInstance(context) }
     var downloadedMangaList by remember { mutableStateOf<List<DownloadedManga>>(emptyList()) }
     var selectedManga by remember { mutableStateOf<DownloadedManga?>(null) }
@@ -184,9 +185,9 @@ fun LibraryScreen(
                     Text(
                         text = selectedManga?.title
                             ?: when (selectedLibraryTab) {
-                                0 -> "TIẾN ĐỘ ĐỌC TRÊN MÁY"
-                                1 -> "THƯ VIỆN OFFLINE (CBZ)"
-                                else -> "THƯ VIỆN MANGADEX"
+                                0 -> strings.libraryHistory
+                                1 -> strings.libraryDownloaded
+                                else -> strings.libraryMangaDexSync
                             },
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         maxLines = 1,
@@ -198,7 +199,7 @@ fun LibraryScreen(
                         IconButton(onClick = { selectedManga = null }) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Quay lại",
+                                contentDescription = strings.close,
                                 tint = EInkBlack
                             )
                         }
@@ -208,7 +209,7 @@ fun LibraryScreen(
                     IconButton(onClick = { refresh() }) {
                         Icon(
                             Icons.Default.Refresh,
-                            contentDescription = "Làm mới thư viện",
+                            contentDescription = strings.refresh,
                             tint = EInkBlack
                         )
                     }
@@ -233,7 +234,7 @@ fun LibraryScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Chưa có chương nào trong thư mục này.",
+                            text = strings.noChaptersInDir,
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
@@ -246,7 +247,7 @@ fun LibraryScreen(
                     ) {
                         item {
                             Text(
-                                text = "Tổng cộng: ${currentManga.chapters.size} chương offline (CBZ)",
+                                text = String.format(strings.totalOfflineChapters, currentManga.chapters.size),
                                 fontSize = 12.sp,
                                 color = EInkDarkGray,
                                 modifier = Modifier.padding(bottom = 4.dp)
@@ -298,7 +299,7 @@ fun LibraryScreen(
                                 ) {
                                     Icon(
                                         Icons.Default.Delete,
-                                        contentDescription = "Xóa file CBZ",
+                                        contentDescription = strings.deleteOfflineChapter,
                                         tint = EInkBlack,
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -326,7 +327,7 @@ fun LibraryScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "Đang đọc (${readingHistoryList.size})",
+                                text = "${strings.tabReading} (${readingHistoryList.size})",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp,
                                 color = if (selectedLibraryTab == 0) EInkWhite else EInkBlack
@@ -341,7 +342,7 @@ fun LibraryScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "Tải về (${downloadedMangaList.size})",
+                                text = "${strings.tabDownloaded} (${downloadedMangaList.size})",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp,
                                 color = if (selectedLibraryTab == 1) EInkWhite else EInkBlack
@@ -356,7 +357,7 @@ fun LibraryScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "MangaDex Sync",
+                                text = strings.tabMangaDex,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp,
                                 color = if (selectedLibraryTab == 2) EInkWhite else EInkBlack
@@ -375,13 +376,13 @@ fun LibraryScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "[ CHƯA CÓ TRUYỆN ĐANG ĐỌC ]",
+                                    text = strings.emptyHistoryTitle,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
-                                    text = "Khi bạn đọc một chương truyện bất kỳ, tiến độ và chương đang đọc dở sẽ được tự động lưu tại đây để bạn có thể tiếp tục đọc bất cứ lúc nào.",
+                                    text = strings.emptyHistoryDesc,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = EInkDarkGray
                                 )
@@ -447,7 +448,7 @@ fun LibraryScreen(
                                                     overflow = TextOverflow.Ellipsis
                                                 )
                                                 Text(
-                                                    text = "Đang đọc: ${record.lastChapterTitle}",
+                                                    text = "${strings.tabReading}: ${record.lastChapterTitle}",
                                                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis
@@ -462,7 +463,7 @@ fun LibraryScreen(
                                                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp, color = EInkDarkGray)
                                                 )
                                                 Text(
-                                                    text = formatTimeAgo(record.updatedAt),
+                                                    text = formatTimeAgo(record.updatedAt, strings),
                                                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, color = Color.Gray)
                                                 )
 
@@ -493,7 +494,7 @@ fun LibraryScreen(
                                                     ) {
                                                         Icon(Icons.Default.MenuBook, contentDescription = null, tint = EInkWhite, modifier = Modifier.size(14.dp))
                                                         Spacer(modifier = Modifier.width(4.dp))
-                                                        Text("ĐỌC TIẾP", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EInkWhite)
+                                                        Text(strings.continueReading, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EInkWhite)
                                                     }
 
                                                     OutlinedButton(
@@ -506,7 +507,7 @@ fun LibraryScreen(
                                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                                         modifier = Modifier.height(30.dp)
                                                     ) {
-                                                        Icon(Icons.Default.Delete, contentDescription = "Xóa khỏi lịch sử", tint = EInkDarkGray, modifier = Modifier.size(14.dp))
+                                                        Icon(Icons.Default.Delete, contentDescription = strings.deleteFromHistory, tint = EInkDarkGray, modifier = Modifier.size(14.dp))
                                                     }
                                                 }
                                             }
@@ -526,13 +527,13 @@ fun LibraryScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "[ THƯ VIỆN OFFLINE TRỐNG ]",
+                                    text = strings.emptyOfflineTitle,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
-                                    text = "Các chương truyện được tải về dưới dạng file .cbz sẽ được lưu trong thư mục mangadex-download và hiển thị tại đây để đọc offline mà không cần mạng Internet.",
+                                    text = strings.emptyOfflineDesc,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = EInkDarkGray
                                 )
@@ -629,13 +630,13 @@ fun LibraryScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "[ CHƯA ĐĂNG NHẬP MANGADEX ]",
+                                    text = strings.notLoggedInMangaDex,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
-                                    text = "Vào mục Cài đặt -> Đăng nhập tài khoản MangaDex để tự động đồng bộ danh sách truyện bạn đang đọc, đã đọc xong và đang theo dõi tại đây.",
+                                    text = strings.notLoggedInDesc,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = EInkDarkGray
                                 )
@@ -664,14 +665,14 @@ fun LibraryScreen(
                             ) {
                                 if (isExpired) {
                                     Text(
-                                        text = "⚠️ PHIÊN ĐĂNG NHẬP ĐÃ HẾT HẠN",
+                                        text = strings.sessionExpiredTitle,
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = EInkBlack
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
-                                        text = "Session token của MangaDex chỉ có hạn 15 phút. Vui lòng đăng nhập lại (hoặc làm mới token) trong Cài đặt để đồng bộ 6 truyện đang theo dõi của bạn.",
+                                        text = strings.sessionExpiredDesc,
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = EInkDarkGray
                                     )
@@ -682,7 +683,7 @@ fun LibraryScreen(
                                         colors = ButtonDefaults.buttonColors(containerColor = EInkBlack, contentColor = EInkWhite),
                                         modifier = Modifier.fillMaxWidth().height(40.dp)
                                     ) {
-                                        Text("ĐĂNG NHẬP LẠI TRONG CÀI ĐẶT", color = EInkWhite, fontWeight = FontWeight.Bold)
+                                        Text(strings.loginInSettings, color = EInkWhite, fontWeight = FontWeight.Bold)
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
                                     OutlinedButton(
@@ -691,7 +692,7 @@ fun LibraryScreen(
                                         shape = RoundedCornerShape(2.dp),
                                         modifier = Modifier.fillMaxWidth().height(40.dp)
                                     ) {
-                                        Text("Thử tải lại", color = EInkBlack)
+                                        Text(strings.retry, color = EInkBlack)
                                     }
                                 } else {
                                     Text(text = "Lỗi kết nối: $onlineError", color = Color.Red)
@@ -714,13 +715,13 @@ fun LibraryScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "[ CHƯA CÓ TRUYỆN ĐƯỢC ĐỒNG BỘ ]",
+                                    text = strings.emptySyncTitle,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Bạn chưa theo dõi hoặc chưa đánh dấu trạng thái đọc cho truyện nào trên tài khoản MangaDex.",
+                                    text = strings.emptySyncDesc,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = EInkDarkGray
                                 )
@@ -730,17 +731,17 @@ fun LibraryScreen(
                                     border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
                                     shape = RoundedCornerShape(2.dp)
                                 ) {
-                                    Text("Tải lại", color = EInkBlack)
+                                    Text(strings.refresh, color = EInkBlack)
                                 }
                             }
                         } else {
                             val filterOptions = listOf(
-                                "all" to "Tất cả (${onlineMangaList.size})",
-                                "reading" to "Đang đọc",
-                                "plan_to_read" to "Dự định",
-                                "completed" to "Đã xong",
-                                "on_hold" to "Tạm ngưng",
-                                "dropped" to "Bỏ dở"
+                                "all" to "${strings.filterAll} (${onlineMangaList.size})",
+                                "reading" to strings.statusReading,
+                                "plan_to_read" to strings.statusPlanToRead,
+                                "completed" to strings.statusCompleted,
+                                "on_hold" to strings.statusOnHold,
+                                "dropped" to strings.statusDropped
                             )
 
                             Row(
@@ -898,7 +899,7 @@ fun LibraryScreen(
     }
 }
 
-private fun formatTimeAgo(timestamp: Long): String {
+private fun formatTimeAgo(timestamp: Long, strings: com.eink.reader.util.AppStrings): String {
     val diff = System.currentTimeMillis() - timestamp
     val seconds = (diff / 1000).coerceAtLeast(0)
     val minutes = seconds / 60
@@ -906,10 +907,10 @@ private fun formatTimeAgo(timestamp: Long): String {
     val days = hours / 24
 
     return when {
-        minutes < 1 -> "Vừa xong"
-        minutes < 60 -> "$minutes phút trước"
-        hours < 24 -> "$hours giờ trước"
-        days < 7 -> "$days ngày trước"
+        minutes < 1 -> strings.timeJustNow
+        minutes < 60 -> String.format(strings.timeMinutesAgo, minutes)
+        hours < 24 -> String.format(strings.timeHoursAgo, hours)
+        days < 7 -> String.format(strings.timeDaysAgo, days)
         else -> {
             val sdf = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
             sdf.format(java.util.Date(timestamp))
