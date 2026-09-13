@@ -127,7 +127,11 @@ fun SettingsScreen(
     // State cho Storage
     var downloadStoragePath by remember { mutableStateOf(settings.downloadStoragePath) }
     val downloadManager = remember { DownloadManager.getInstance(context) }
-    val currentEffectivePath = downloadStoragePath.ifBlank { downloadManager.downloadBaseDir.absolutePath }
+    val currentEffectivePath = remember(downloadStoragePath) { downloadManager.downloadBaseDir.absolutePath }
+    val isCurrentWritable = remember(downloadStoragePath) { downloadManager.isDirectoryWritable(downloadManager.downloadBaseDir) }
+    val isSdCardSelected = remember(downloadStoragePath) {
+        currentEffectivePath.contains("/storage/") && !currentEffectivePath.contains("emulated")
+    }
     val availableLocations = remember { downloadManager.getAvailableStorageLocations() }
 
     // State cho Network
@@ -1463,32 +1467,62 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text(strings.storageCurrentLocation, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    text = currentEffectivePath,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = EInkBlack
-                                )
+                                 Row(
+                                     modifier = Modifier.fillMaxWidth(),
+                                     horizontalArrangement = Arrangement.SpaceBetween,
+                                     verticalAlignment = Alignment.CenterVertically
+                                 ) {
+                                     Text(strings.storageCurrentLocation, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                     Text(
+                                         text = if (isSdCardSelected) "[ THẺ NHỚ NGOÀI SD ]" else "[ BỘ NHỚ TRONG MÁY ]",
+                                         fontSize = 11.sp,
+                                         fontWeight = FontWeight.Bold,
+                                         color = if (isSdCardSelected) EInkBlack else EInkDarkGray
+                                     )
+                                 }
+                                 Text(
+                                     text = currentEffectivePath,
+                                     fontSize = 12.sp,
+                                     fontWeight = FontWeight.Bold,
+                                     color = EInkBlack
+                                 )
 
-                                OutlinedTextField(
-                                    value = downloadStoragePath,
-                                    onValueChange = {
-                                        downloadStoragePath = it
-                                        settings.downloadStoragePath = it
-                                    },
-                                    placeholder = { Text("Mặc định: ${downloadManager.downloadBaseDir.absolutePath}", fontSize = 11.sp, color = Color.Gray) },
-                                    label = { Text("Tùy chỉnh đường dẫn (VD: /storage/xxxx-xxxx/mangadex-download)", fontSize = 11.sp) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(2.dp)
-                                )
+                                 Text(
+                                     text = if (isCurrentWritable) "✓ Có quyền ghi dữ liệu trực tiếp (Sẵn sàng tải truyện)" else "⚠️ Đường dẫn này chưa có quyền ghi trực tiếp trên Android",
+                                     fontSize = 11.sp,
+                                     fontWeight = FontWeight.SemiBold,
+                                     color = if (isCurrentWritable) Color(0xFF006600) else Color.Red
+                                 )
 
-                                Text(strings.storageSelectLocation, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                  if (!isCurrentWritable && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                                     OutlinedButton(
+                                         onClick = { downloadManager.openAllFilesAccessSetting(context) },
+                                         shape = RoundedCornerShape(2.dp),
+                                         border = androidx.compose.foundation.BorderStroke(1.dp, Color.Red),
+                                         modifier = Modifier.fillMaxWidth().height(34.dp)
+                                     ) {
+                                         Text("CẤP QUYỀN QUẢN LÝ TẤT CẢ TỆP (ALL FILES ACCESS)", color = Color.Red, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                     }
+                                 }
 
-                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    availableLocations.forEach { loc ->
-                                        val isCurrent = (downloadStoragePath.isBlank() && !loc.isRemovable) || downloadStoragePath == loc.path
+                                 OutlinedTextField(
+                                     value = downloadStoragePath,
+                                     onValueChange = {
+                                         downloadStoragePath = it
+                                         settings.downloadStoragePath = it
+                                     },
+                                     placeholder = { Text("Mặc định: ${downloadManager.downloadBaseDir.absolutePath}", fontSize = 11.sp, color = Color.Gray) },
+                                     label = { Text("Tùy chỉnh đường dẫn (VD: /storage/xxxx-xxxx/mangadex-download)", fontSize = 11.sp) },
+                                     singleLine = true,
+                                     modifier = Modifier.fillMaxWidth(),
+                                     shape = RoundedCornerShape(2.dp)
+                                 )
+
+                                 Text(strings.storageSelectLocation, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+
+                                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                     availableLocations.forEach { loc ->
+                                         val isCurrent = (downloadStoragePath.isBlank() && !loc.isRemovable) || downloadStoragePath == loc.path || currentEffectivePath == loc.path
                                         OutlinedButton(
                                             onClick = {
                                                 downloadStoragePath = loc.path

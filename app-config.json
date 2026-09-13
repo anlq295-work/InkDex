@@ -1,7 +1,7 @@
 {
   "config_version": 1,
   "updated_at": "2026-09-13",
-  "changelog": "Cập nhật v1.6.4: Hotfix nhận diện phiên bản động ngăn vòng lặp cập nhật đè, tái sử dụng file APK tải về, hoàn thiện đa ngôn ngữ toàn bộ Tủ sách và Cài đặt.",
+  "changelog": "Cập nhật v1.7: Tối ưu hoá lưu trữ thẻ nhớ ngoài SD, đảm bảo ghi trực tiếp vào thẻ nhớ không bị rớt về bộ nhớ máy, sửa lỗi tải truyện offline với cơ chế thử lại và fallback proxy.",
   "strings": {},
   "system_notice": {
     "enabled": false,
