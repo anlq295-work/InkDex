@@ -384,14 +384,15 @@ fun SettingsScreen(
                                             coroutineScope.launch {
                                                 isCheckingUpdate = true
                                                 updateCheckResult = strings.checkUpdateChecking
-                                                val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.6.3")
+                                                val currentAppVer = AppUpdateHelper.getAppVersion(context)
+                                                val res = AppUpdateHelper.checkForUpdate(currentVersion = currentAppVer)
                                                 res.onSuccess { info ->
                                                     isCheckingUpdate = false
                                                     if (info.isNewer) {
                                                         availableUpdateInfo = info
                                                         updateCheckResult = String.format(strings.checkUpdateResultAvailable, info.tagName)
                                                     } else {
-                                                        updateCheckResult = String.format(strings.checkUpdateResultLatest, "1.6.3")
+                                                        updateCheckResult = String.format(strings.checkUpdateResultLatest, currentAppVer)
                                                     }
                                                 }.onFailure { err ->
                                                     isCheckingUpdate = false
@@ -508,7 +509,7 @@ fun SettingsScreen(
 
                         // Footer phiên bản
                         Text(
-                            text = String.format(if (eInkSupportEnabled) strings.footerEInkOptimized else strings.footerStandardMode, "1.6.3"),
+                            text = String.format(if (eInkSupportEnabled) strings.footerEInkOptimized else strings.footerStandardMode, AppUpdateHelper.getAppVersion(context)),
                             fontSize = 11.sp,
                             color = EInkDarkGray,
                             textAlign = TextAlign.Center,
@@ -1792,7 +1793,7 @@ fun SettingsScreen(
                                     color = EInkBlack
                                 )
                                 Text(
-                                    text = String.format(strings.creditVersionFormat, "1.6.3", 14),
+                                    text = String.format(strings.creditVersionFormat, AppUpdateHelper.getAppVersion(context), AppUpdateHelper.getAppVersionCode(context)),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp,
                                     color = EInkBlack
@@ -2066,7 +2067,7 @@ fun SettingsScreen(
     availableUpdateInfo?.let { info ->
         UpdateDialog(
             releaseInfo = info,
-            currentVersion = "1.6.3",
+            currentVersion = AppUpdateHelper.getAppVersion(context),
             onDismiss = { availableUpdateInfo = null }
         )
     }

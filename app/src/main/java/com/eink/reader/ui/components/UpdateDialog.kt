@@ -37,7 +37,7 @@ private enum class UpdateDownloadState {
 @Composable
 fun UpdateDialog(
     releaseInfo: AppReleaseInfo,
-    currentVersion: String = "1.6.1",
+    currentVersion: String = AppUpdateHelper.getAppVersion(LocalContext.current),
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -50,48 +50,58 @@ fun UpdateDialog(
     var downloadedFile by remember { mutableStateOf<File?>(null) }
     var downloadJob by remember { mutableStateOf<Job?>(null) }
 
-    val startDownload = {
+    val startDownload = { forceRedownload: Boolean ->
         val apkUrl = releaseInfo.apkDownloadUrl
         if (apkUrl.isNullOrBlank()) {
             AppUpdateHelper.openUrl(context, releaseInfo.htmlUrl)
             onDismiss()
         } else {
             val targetFile = AppUpdateHelper.getUpdateApkFile(context, releaseInfo.tagName)
-            downloadedFile = targetFile
-            downloadState = UpdateDownloadState.DOWNLOADING
-            bytesDownloaded = 0L
-            totalBytes = 0L
-            errorMessage = null
+            if (!forceRedownload && targetFile.exists() && targetFile.length() > 5 * 1024 * 1024L) {
+                // File đã tải hoàn tất từ trước, không cần tải lại
+                downloadedFile = targetFile
+                downloadState = UpdateDownloadState.READY_TO_INSTALL
+                val installRes = AppUpdateHelper.installApk(context, targetFile)
+                installRes.onFailure { err ->
+                    errorMessage = err.localizedMessage
+                }
+            } else {
+                downloadedFile = targetFile
+                downloadState = UpdateDownloadState.DOWNLOADING
+                bytesDownloaded = 0L
+                totalBytes = 0L
+                errorMessage = null
 
-            downloadJob = coroutineScope.launch {
-                val result = AppUpdateHelper.downloadApk(
-                    apkUrl = apkUrl,
-                    targetFile = targetFile,
-                    onProgress = { read, total ->
-                        bytesDownloaded = read
-                        totalBytes = total
-                    }
-                )
+                downloadJob = coroutineScope.launch {
+                    val result = AppUpdateHelper.downloadApk(
+                        apkUrl = apkUrl,
+                        targetFile = targetFile,
+                        onProgress = { read, total ->
+                            bytesDownloaded = read
+                            totalBytes = total
+                        }
+                    )
 
-                result.onSuccess { file ->
-                    downloadState = UpdateDownloadState.READY_TO_INSTALL
-                    // Tự động mở trình cài đặt ngay khi tải xong
-                    val installRes = AppUpdateHelper.installApk(context, file)
-                    installRes.onFailure { err ->
-                        errorMessage = err.localizedMessage
+                    result.onSuccess { file ->
+                        downloadState = UpdateDownloadState.READY_TO_INSTALL
+                        // Tự động mở trình cài đặt ngay khi tải xong
+                        val installRes = AppUpdateHelper.installApk(context, file)
+                        installRes.onFailure { err ->
+                            errorMessage = err.localizedMessage
+                        }
+                    }.onFailure { err ->
+                        downloadState = UpdateDownloadState.ERROR
+                        errorMessage = err.localizedMessage ?: "Tải bản cập nhật thất bại."
                     }
-                }.onFailure { err ->
-                    downloadState = UpdateDownloadState.ERROR
-                    errorMessage = err.localizedMessage ?: "Tải bản cập nhật thất bại."
                 }
             }
         }
     }
 
     LaunchedEffect(Unit) {
-        // Tự động tải bản cập nhật luôn mà không cần chờ người dùng bấm
+        // Tự động kiểm tra file đã tải hoặc bắt đầu tải
         if (downloadState == UpdateDownloadState.IDLE && !releaseInfo.apkDownloadUrl.isNullOrBlank()) {
-            startDownload()
+            startDownload(false)
         }
     }
 
@@ -239,7 +249,7 @@ fun UpdateDialog(
             when (downloadState) {
                 UpdateDownloadState.IDLE -> {
                     Button(
-                        onClick = startDownload,
+                        onClick = { startDownload(false) },
                         shape = RoundedCornerShape(2.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = EInkBlack, contentColor = EInkWhite)
                     ) {
@@ -263,25 +273,34 @@ fun UpdateDialog(
                 }
 
                 UpdateDownloadState.READY_TO_INSTALL -> {
-                    Button(
-                        onClick = {
-                            downloadedFile?.let { file ->
-                                val installRes = AppUpdateHelper.installApk(context, file)
-                                installRes.onFailure { err ->
-                                    errorMessage = err.localizedMessage
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(
+                            onClick = { startDownload(true) },
+                            shape = RoundedCornerShape(2.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack)
+                        ) {
+                            Text("Tải lại", color = EInkBlack, fontSize = 11.sp)
+                        }
+                        Button(
+                            onClick = {
+                                downloadedFile?.let { file ->
+                                    val installRes = AppUpdateHelper.installApk(context, file)
+                                    installRes.onFailure { err ->
+                                        errorMessage = err.localizedMessage
+                                    }
                                 }
-                            }
-                        },
-                        shape = RoundedCornerShape(2.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = EInkBlack, contentColor = EInkWhite)
-                    ) {
-                        Text("MỞ TRÌNH CÀI ĐẶT", color = EInkWhite, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            },
+                            shape = RoundedCornerShape(2.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = EInkBlack, contentColor = EInkWhite)
+                        ) {
+                            Text("CÀI ĐẶT NGAY", color = EInkWhite, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
 
                 UpdateDownloadState.ERROR -> {
                     Button(
-                        onClick = startDownload,
+                        onClick = { startDownload(true) },
                         shape = RoundedCornerShape(2.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = EInkBlack, contentColor = EInkWhite)
                     ) {

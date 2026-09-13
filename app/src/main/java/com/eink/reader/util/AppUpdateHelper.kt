@@ -56,6 +56,51 @@ object AppUpdateHelper {
     }
 
     /**
+     * Lấy versionName thực tế từ hệ thống PackageManager của app đang chạy.
+     */
+    fun getAppVersion(context: Context): String {
+        return try {
+            val pInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(
+                    context.packageName,
+                    android.content.pm.PackageManager.PackageInfoFlags.of(0)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(context.packageName, 0)
+            }
+            pInfo.versionName ?: "1.6.3"
+        } catch (e: Exception) {
+            "1.6.3"
+        }
+    }
+
+    /**
+     * Lấy versionCode thực tế từ hệ thống PackageManager.
+     */
+    fun getAppVersionCode(context: Context): Long {
+        return try {
+            val pInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(
+                    context.packageName,
+                    android.content.pm.PackageManager.PackageInfoFlags.of(0)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(context.packageName, 0)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                pInfo.longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                pInfo.versionCode.toLong()
+            }
+        } catch (e: Exception) {
+            14L
+        }
+    }
+
+    /**
      * Kiểm tra bản cập nhật mới nhất từ GitHub Releases qua API.
      */
     suspend fun checkForUpdate(
@@ -193,7 +238,7 @@ object AppUpdateHelper {
         try {
             val request = Request.Builder()
                 .url(apkUrl)
-                .addHeader("User-Agent", "InkDex-EReader/1.6.2")
+                .addHeader("User-Agent", "InkDex-EReader/1.6.3")
                 .build()
 
             val response = client.newCall(request).execute()
