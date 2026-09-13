@@ -69,9 +69,9 @@ object AppUpdateHelper {
                 @Suppress("DEPRECATION")
                 context.packageManager.getPackageInfo(context.packageName, 0)
             }
-            pInfo.versionName ?: "1.6.3"
+            pInfo.versionName ?: "1.6.4"
         } catch (e: Exception) {
-            "1.6.3"
+            "1.6.4"
         }
     }
 
@@ -96,7 +96,7 @@ object AppUpdateHelper {
                 pInfo.versionCode.toLong()
             }
         } catch (e: Exception) {
-            14L
+            15L
         }
     }
 
@@ -105,7 +105,7 @@ object AppUpdateHelper {
      */
     suspend fun checkForUpdate(
         client: OkHttpClient = OkHttpClient(),
-        currentVersion: String = "1.6.3"
+        currentVersion: String = "1.6.4"
     ): Result<AppReleaseInfo> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder()
@@ -238,7 +238,7 @@ object AppUpdateHelper {
         try {
             val request = Request.Builder()
                 .url(apkUrl)
-                .addHeader("User-Agent", "InkDex-EReader/1.6.3")
+                .addHeader("User-Agent", "InkDex-EReader/1.6.4")
                 .build()
 
             val response = client.newCall(request).execute()
