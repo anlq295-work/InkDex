@@ -1,4 +1,4 @@
-﻿package com.eink.reader.ui.components
+package com.eink.reader.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,7 +19,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,8 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eink.reader.data.model.PatchDownloadProgress
-import com.eink.reader.data.model.ResourcePatch
-import com.eink.reader.data.repository.ResourceManager
+import com.eink.reader.data.model.RemoteConfig
+import com.eink.reader.data.repository.RemoteConfigManager
 import com.eink.reader.ui.theme.EInkBlack
 import com.eink.reader.ui.theme.EInkBorder
 import com.eink.reader.ui.theme.EInkDarkGray
@@ -48,8 +47,8 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun ResourcePatchDialog(
-    resourceManager: ResourceManager,
-    patch: ResourcePatch,
+    remoteConfigManager: RemoteConfigManager,
+    config: RemoteConfig,
     onDismiss: () -> Unit
 ) {
     val strings = LocalAppStrings.current
@@ -61,7 +60,7 @@ fun ResourcePatchDialog(
         if (isDownloading) return
         isDownloading = true
         coroutineScope.launch {
-            resourceManager.downloadAndApplyPatch { p ->
+            remoteConfigManager.syncRemoteConfig(force = true) { p ->
                 progress = p
             }
             isDownloading = false
@@ -89,7 +88,7 @@ fun ResourcePatchDialog(
                     modifier = Modifier.size(24.dp)
                 )
                 Text(
-                    text = "GÓI TÀI NGUYÊN MỚI (PATCH v)",
+                    text = "GÓI TÀI NGUYÊN MỚI (DATA v${config.configVersion})",
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = EInkBlack
@@ -101,7 +100,7 @@ fun ResourcePatchDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                if (patch.changelog.isNotBlank()) {
+                if (config.changelog.isNotBlank()) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -117,7 +116,7 @@ fun ResourcePatchDialog(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = patch.changelog,
+                            text = config.changelog,
                             fontSize = 12.sp,
                             color = EInkDarkGray,
                             lineHeight = 16.sp
@@ -127,7 +126,7 @@ fun ResourcePatchDialog(
 
                 if (progress.error != null) {
                     Text(
-                        text = "Lỗi: ",
+                        text = "Lỗi: ${progress.error}",
                         color = Color.Red,
                         fontSize = 12.sp
                     )
@@ -145,12 +144,12 @@ fun ResourcePatchDialog(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Đang tải gói dữ liệu...",
+                                text = "Đang nạp dữ liệu...",
                                 fontSize = 11.sp,
                                 color = EInkDarkGray
                             )
                             Text(
-                                text = "%",
+                                text = "${progress.percent}%",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp,
                                 color = EInkBlack
@@ -167,7 +166,7 @@ fun ResourcePatchDialog(
                         )
                         if (progress.totalBytes > 0) {
                             Text(
-                                text = " / ",
+                                text = "${formatSize(progress.bytesDownloaded)} / ${formatSize(progress.totalBytes)}",
                                 fontSize = 10.sp,
                                 color = EInkDarkGray
                             )

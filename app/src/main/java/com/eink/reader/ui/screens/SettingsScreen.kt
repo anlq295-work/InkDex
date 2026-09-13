@@ -152,16 +152,11 @@ fun SettingsScreen(
     var updateCheckResult by remember { mutableStateOf<String?>(null) }
     var availableUpdateInfo by remember { mutableStateOf<AppReleaseInfo?>(null) }
 
-    // State cho Remote Config
+    // State cho Remote Config & Resource Patch (Đồng bộ tài nguyên In-App)
     val remoteConfig by repository.remoteConfigManager.configFlow.collectAsState()
-    var isSyncingRemoteConfig by remember { mutableStateOf(false) }
-    var remoteConfigSyncResult by remember { mutableStateOf<String?>(null) }
-
-    // State cho Resource Patch (Cập nhật tài nguyên như game)
-    val currentPatchVersion by repository.resourceManager.currentPatchVersion.collectAsState()
     var isCheckingPatch by remember { mutableStateOf(false) }
     var patchCheckResult by remember { mutableStateOf<String?>(null) }
-    var availablePatchInfo by remember { mutableStateOf<com.eink.reader.data.model.ResourcePatch?>(null) }
+    var availablePatchInfo by remember { mutableStateOf<com.eink.reader.data.model.RemoteConfig?>(null) }
 
     Scaffold(
         topBar = {
@@ -416,7 +411,7 @@ fun SettingsScreen(
                             }
                         }
 
-                        // Thẻ: Cập nhật dữ liệu từ xa (Remote Config)
+                        // Thẻ: Cập nhật tài nguyên & Dữ liệu In-App (Game-Style Hot Update)
                         Card(
                             shape = RoundedCornerShape(4.dp),
                             colors = CardDefaults.cardColors(containerColor = EInkSurface),
@@ -433,9 +428,10 @@ fun SettingsScreen(
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("Dữ liệu quy tắc từ xa (Remote Config):", fontSize = 11.sp, color = EInkDarkGray)
+                                        Text("Dữ liệu & Tài nguyên In-App (Hot Patch):", fontSize = 11.sp, color = EInkDarkGray)
+                                        val langInfo = if (remoteConfig.strings.isNotEmpty()) "${remoteConfig.strings.size} gói ngôn ngữ" else "Từ điển chuẩn"
                                         Text(
-                                            text = "Data v${remoteConfig.configVersion} • ${remoteConfig.chapterRules.extraPrefixes.size} tiền tố chap",
+                                            text = "Data v${remoteConfig.configVersion} • ${remoteConfig.chapterRules.extraPrefixes.size} tiền tố chap • $langInfo",
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 13.sp,
                                             color = EInkBlack
@@ -446,76 +442,7 @@ fun SettingsScreen(
                                             sdf.format(java.util.Date(lastSync))
                                         } else "Chưa đồng bộ"
                                         Text(
-                                            text = "Lần đồng bộ: $lastSyncFormatted",
-                                            fontSize = 10.sp,
-                                            color = EInkDarkGray
-                                        )
-                                    }
-                                }
-
-                                OutlinedButton(
-                                    onClick = {
-                                        coroutineScope.launch {
-                                            isSyncingRemoteConfig = true
-                                            remoteConfigSyncResult = "Đang đồng bộ..."
-                                            val res = repository.remoteConfigManager.syncRemoteConfig(force = true)
-                                            isSyncingRemoteConfig = false
-                                            res.onSuccess { cfg ->
-                                                remoteConfigSyncResult = "✓ Đã cập nhật data v${cfg.configVersion} thành công!"
-                                            }.onFailure { err ->
-                                                remoteConfigSyncResult = "❌ Lỗi: ${err.localizedMessage}"
-                                            }
-                                        }
-                                    },
-                                    enabled = !isSyncingRemoteConfig,
-                                    shape = RoundedCornerShape(2.dp),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
-                                    modifier = Modifier.fillMaxWidth().height(36.dp)
-                                ) {
-                                    Icon(Icons.Default.Sync, contentDescription = null, tint = EInkBlack, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(if (isSyncingRemoteConfig) "Đang tải dữ liệu..." else "ĐỒNG BỘ DATA TỪ XA", color = EInkBlack, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                }
-
-                                remoteConfigSyncResult?.let {
-                                    Text(
-                                        text = it,
-                                        fontSize = 11.sp,
-                                        color = EInkDarkGray,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-                            }
-                        }
-
-                        // Thẻ: Cập nhật tài nguyên In-App (Game Patch)
-                        Card(
-                            shape = RoundedCornerShape(4.dp),
-                            colors = CardDefaults.cardColors(containerColor = EInkSurface),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, EInkBorder),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text("Gói tài nguyên In-App (Resource Patch):", fontSize = 11.sp, color = EInkDarkGray)
-                                        val patchText = if (currentPatchVersion > 0) "Patch v$currentPatchVersion (Đã nạp)" else "Chưa có patch (Mặc định)"
-                                        Text(
-                                            text = patchText,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp,
-                                            color = EInkBlack
-                                        )
-                                        Text(
-                                            text = "Cập nhật từ điển ngôn ngữ & quy tắc không cần tải APK",
+                                            text = "Lần cập nhật gần nhất: $lastSyncFormatted",
                                             fontSize = 10.sp,
                                             color = EInkDarkGray
                                         )
@@ -526,15 +453,22 @@ fun SettingsScreen(
                                     onClick = {
                                         coroutineScope.launch {
                                             isCheckingPatch = true
-                                            patchCheckResult = "Đang kiểm tra gói tài nguyên..."
-                                            val res = repository.resourceManager.checkForPatch(force = true)
+                                            patchCheckResult = "Đang kiểm tra gói tài nguyên từ xa..."
+                                            val res = repository.remoteConfigManager.checkForNewConfig(force = true)
                                             isCheckingPatch = false
-                                            res.onSuccess { p ->
-                                                if (p != null) {
-                                                    availablePatchInfo = p
-                                                    patchCheckResult = "🎉 Có gói patch mới: v${p.patchVersion}!"
+                                            res.onSuccess { cfg ->
+                                                if (cfg != null) {
+                                                    availablePatchInfo = cfg
+                                                    patchCheckResult = "🎉 Có bản data mới: v${cfg.configVersion}!"
                                                 } else {
-                                                    patchCheckResult = "✓ Đang ở gói tài nguyên mới nhất (Patch v$currentPatchVersion)"
+                                                    isCheckingPatch = true
+                                                    patchCheckResult = "Đang đồng bộ làm mới dữ liệu..."
+                                                    repository.remoteConfigManager.syncRemoteConfig(force = true).onSuccess {
+                                                        patchCheckResult = "✓ Dữ liệu & từ điển ngôn ngữ đã ở trạng thái mới nhất!"
+                                                    }.onFailure { err ->
+                                                        patchCheckResult = "❌ Lỗi: ${err.localizedMessage}"
+                                                    }
+                                                    isCheckingPatch = false
                                                 }
                                             }.onFailure { err ->
                                                 patchCheckResult = "❌ Lỗi: ${err.localizedMessage}"
@@ -548,7 +482,7 @@ fun SettingsScreen(
                                 ) {
                                     Icon(Icons.Default.CloudDownload, contentDescription = null, tint = EInkBlack, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text(if (isCheckingPatch) "Đang kiểm tra..." else "KIỂM TRA & TẢI PATCH (IN-APP)", color = EInkBlack, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(if (isCheckingPatch) "Đang nạp dữ liệu..." else "ĐỒNG BỘ TÀI NGUYÊN & CẤU HÌNH (IN-APP)", color = EInkBlack, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
 
                                 patchCheckResult?.let {
@@ -2114,10 +2048,10 @@ fun SettingsScreen(
         )
     }
 
-    availablePatchInfo?.let { patch ->
+    availablePatchInfo?.let { config ->
         ResourcePatchDialog(
-            resourceManager = repository.resourceManager,
-            patch = patch,
+            remoteConfigManager = repository.remoteConfigManager,
+            config = config,
             onDismiss = { availablePatchInfo = null }
         )
     }

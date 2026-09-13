@@ -9,6 +9,8 @@ data class RemoteConfig(
     val configVersion: Int = 1,
     @SerialName("updated_at")
     val updatedAt: String = "",
+    val changelog: String = "",
+    val strings: Map<String, Map<String, String>> = emptyMap(),
     @SerialName("system_notice")
     val systemNotice: SystemNoticeConfig = SystemNoticeConfig(),
     @SerialName("network")
@@ -17,6 +19,14 @@ data class RemoteConfig(
     val chapterRules: ChapterRulesConfig = ChapterRulesConfig(),
     @SerialName("eink_optimization")
     val einkOptimization: EInkOptimizationConfig = EInkOptimizationConfig()
+)
+
+data class PatchDownloadProgress(
+    val percent: Int = 0,
+    val bytesDownloaded: Long = 0L,
+    val totalBytes: Long = 0L,
+    val isDone: Boolean = false,
+    val error: String? = null
 )
 
 @Serializable

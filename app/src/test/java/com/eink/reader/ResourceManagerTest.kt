@@ -1,7 +1,6 @@
-﻿package com.eink.reader
+package com.eink.reader
 
-import com.eink.reader.data.model.ResourcePatch
-import com.eink.reader.util.AppLanguage
+import com.eink.reader.data.model.RemoteConfig
 import com.eink.reader.util.I18n
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -17,10 +16,10 @@ class ResourceManagerTest {
     }
 
     @Test
-    fun testResourcePatchJsonDecoding() {
+    fun testRemoteConfigWithResourcesJsonDecoding() {
         val jsonStr = """
             {
-                "patch_version": 2,
+                "config_version": 2,
                 "updated_at": "2026-09-13T20:45:00Z",
                 "changelog": "Cập nhật từ điển tiếng Việt và bổ sung tiền tố",
                 "strings": {
@@ -39,13 +38,13 @@ class ResourceManagerTest {
             }
         """.trimIndent()
 
-        val patch = json.decodeFromString<ResourcePatch>(jsonStr)
-        assertEquals(2, patch.patchVersion)
-        assertEquals("Cập nhật từ điển tiếng Việt và bổ sung tiền tố", patch.changelog)
-        assertNotNull(patch.strings["vi"])
-        assertEquals("TIẾP TỤC ĐỌC", patch.strings["vi"]?.get("continueReading"))
-        assertEquals("KEEP READING", patch.strings["en"]?.get("continueReading"))
-        assertEquals(4, patch.chapterRules?.extraPrefixes?.size)
+        val config = json.decodeFromString<RemoteConfig>(jsonStr)
+        assertEquals(2, config.configVersion)
+        assertEquals("Cập nhật từ điển tiếng Việt và bổ sung tiền tố", config.changelog)
+        assertNotNull(config.strings["vi"])
+        assertEquals("TIẾP TỤC ĐỌC", config.strings["vi"]?.get("continueReading"))
+        assertEquals("KEEP READING", config.strings["en"]?.get("continueReading"))
+        assertEquals(4, config.chapterRules.extraPrefixes.size)
     }
 
     @Test
