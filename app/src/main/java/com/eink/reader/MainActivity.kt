@@ -31,6 +31,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.eink.reader.data.repository.MangaRepository
 import com.eink.reader.data.repository.SettingsManager
 import com.eink.reader.ui.components.UpdateDialog
@@ -39,6 +41,7 @@ import com.eink.reader.ui.theme.*
 import com.eink.reader.util.AppReleaseInfo
 import com.eink.reader.util.AppUpdateHelper
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableSharedFlow
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -91,14 +94,32 @@ class MainActivity : ComponentActivity() {
                     val isBottomBarVisible = currentRoute in listOf("home", "library", "settings")
                     var isPornographic by remember { mutableStateOf(repository.settingsManager.contentRatingPornographic) }
                     var startupUpdateInfo by remember { mutableStateOf<AppReleaseInfo?>(null) }
+                    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+                    val coroutineScope = rememberCoroutineScope()
+                    var lastUpdateCheckTime by rememberSaveable { mutableLongStateOf(0L) }
 
-                    LaunchedEffect(Unit) {
-                        delay(2000)
-                        val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.1.1")
-                        res.onSuccess { info ->
-                            if (info.isNewer) {
-                                startupUpdateInfo = info
+                    // Tự động kiểm tra bản cập nhật mới mỗi khi khởi động app, sau khi mở khóa màn hình hoặc khi mở lại từ nền
+                    DisposableEffect(lifecycleOwner) {
+                        val observer = LifecycleEventObserver { _, event ->
+                            if (event == Lifecycle.Event.ON_RESUME) {
+                                val now = System.currentTimeMillis()
+                                if (now - lastUpdateCheckTime > 30_000L) {
+                                    lastUpdateCheckTime = now
+                                    coroutineScope.launch {
+                                        delay(1500)
+                                        val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.2")
+                                        res.onSuccess { info ->
+                                            if (info.isNewer) {
+                                                startupUpdateInfo = info
+                                            }
+                                        }
+                                    }
+                                }
                             }
+                        }
+                        lifecycleOwner.lifecycle.addObserver(observer)
+                        onDispose {
+                            lifecycleOwner.lifecycle.removeObserver(observer)
                         }
                     }
 
@@ -362,7 +383,7 @@ class MainActivity : ComponentActivity() {
                         startupUpdateInfo?.let { info ->
                             UpdateDialog(
                                 releaseInfo = info,
-                                currentVersion = "1.1.1",
+                                currentVersion = "1.2",
                                 onDismiss = { startupUpdateInfo = null }
                             )
                         }

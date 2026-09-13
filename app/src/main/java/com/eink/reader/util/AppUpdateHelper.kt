@@ -3,11 +3,17 @@ package com.eink.reader.util
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.Settings
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 
 data class AppReleaseInfo(
     val tagName: String,
@@ -54,7 +60,7 @@ object AppUpdateHelper {
      */
     suspend fun checkForUpdate(
         client: OkHttpClient = OkHttpClient(),
-        currentVersion: String = "1.1.1"
+        currentVersion: String = "1.2"
     ): Result<AppReleaseInfo> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder()
@@ -104,6 +110,167 @@ object AppUpdateHelper {
                     isNewer = isNewer
                 )
             )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Thư mục lưu trữ tạm các file APK cập nhật.
+     */
+    fun getUpdateDirectory(context: Context): File {
+        val dir = File(context.cacheDir, "updates")
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+        return dir
+    }
+
+    /**
+     * Đường dẫn file APK đích cho phiên bản cụ thể.
+     */
+    fun getUpdateApkFile(context: Context, tagName: String): File {
+        val safeTag = tagName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        return File(getUpdateDirectory(context), "InkDex-$safeTag.apk")
+    }
+
+    /**
+     * Tự động quét và xóa sạch các file APK đã tải sau khi cài đặt hoặc khi mở app.
+     */
+    fun cleanupUpdateApks(context: Context) {
+        try {
+            val dir = getUpdateDirectory(context)
+            if (dir.exists() && dir.isDirectory) {
+                dir.listFiles()?.forEach { file ->
+                    if (file.extension.equals("apk", ignoreCase = true) || file.extension.equals("tmp", ignoreCase = true)) {
+                        file.delete()
+                    }
+                }
+            }
+            context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)?.listFiles()?.forEach { file ->
+                if (file.name.startsWith("InkDex", ignoreCase = true) && file.extension.equals("apk", ignoreCase = true)) {
+                    file.delete()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Kiểm tra quyền cài đặt ứng dụng từ nguồn không xác định.
+     */
+    fun canInstallPackages(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.packageManager.canRequestPackageInstalls()
+        } else {
+            true
+        }
+    }
+
+    /**
+     * Mở màn hình cấp quyền cài đặt ứng dụng trong cài đặt hệ thống.
+     */
+    fun openInstallPermissionSetting(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                data = Uri.parse("package:${context.packageName}")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+        }
+    }
+
+    /**
+     * Tải file APK trực tiếp trong ứng dụng kèm theo tiến trình (progress).
+     */
+    suspend fun downloadApk(
+        client: OkHttpClient = OkHttpClient(),
+        apkUrl: String,
+        targetFile: File,
+        onProgress: (bytesRead: Long, totalBytes: Long) -> Unit
+    ): Result<File> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url(apkUrl)
+                .addHeader("User-Agent", "InkDex-EReader/1.2")
+                .build()
+
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(Exception("Tải file thất bại: Mã HTTP ${response.code}"))
+            }
+
+            val body = response.body ?: return@withContext Result.failure(Exception("Không nhận được dữ liệu từ máy chủ"))
+            val totalBytes = body.contentLength()
+
+            if (targetFile.exists()) {
+                targetFile.delete()
+            }
+
+            val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
+            if (tempFile.exists()) {
+                tempFile.delete()
+            }
+
+            body.byteStream().use { input ->
+                FileOutputStream(tempFile).use { output ->
+                    val buffer = ByteArray(8192)
+                    var bytesRead: Long = 0
+                    var read: Int
+                    var lastReported = 0L
+
+                    while (input.read(buffer).also { read = it } != -1) {
+                        output.write(buffer, 0, read)
+                        bytesRead += read
+
+                        val now = System.currentTimeMillis()
+                        if (now - lastReported > 80 || bytesRead == totalBytes) {
+                            lastReported = now
+                            onProgress(bytesRead, totalBytes)
+                        }
+                    }
+                    output.flush()
+                }
+            }
+
+            if (tempFile.renameTo(targetFile)) {
+                Result.success(targetFile)
+            } else {
+                Result.failure(Exception("Không thể lưu file APK cập nhật."))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Mở trình cài đặt gói hệ thống (Package Installer) thông qua FileProvider.
+     */
+    fun installApk(context: Context, apkFile: File): Result<Unit> {
+        return try {
+            if (!apkFile.exists() || apkFile.length() == 0L) {
+                return Result.failure(Exception("File cài đặt APK không tồn tại hoặc bị lỗi."))
+            }
+
+            if (!canInstallPackages(context)) {
+                openInstallPermissionSetting(context)
+                return Result.failure(Exception("Vui lòng gạt bật 'Cho phép từ nguồn này' để cài đặt bản cập nhật."))
+            }
+
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                apkFile
+            )
+
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            }
+
+            context.startActivity(intent)
+            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }

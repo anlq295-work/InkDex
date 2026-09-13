@@ -20,6 +20,7 @@ class EInkApplication : Application(), ImageLoaderFactory {
         super.onCreate()
         instance = this
         settingsManager = SettingsManager(this)
+        com.eink.reader.util.AppUpdateHelper.cleanupUpdateApks(this)
     }
 
     override fun newImageLoader(): ImageLoader {

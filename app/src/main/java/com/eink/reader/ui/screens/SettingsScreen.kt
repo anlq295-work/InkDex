@@ -31,7 +31,10 @@ import androidx.compose.ui.unit.sp
 import com.eink.reader.data.download.DownloadManager
 import com.eink.reader.data.model.EInkColorMode
 import com.eink.reader.data.repository.MangaRepository
+import com.eink.reader.ui.components.UpdateDialog
 import com.eink.reader.ui.theme.*
+import com.eink.reader.util.AppReleaseInfo
+import com.eink.reader.util.AppUpdateHelper
 import com.eink.reader.util.EInkHelper
 import kotlinx.coroutines.launch
 
@@ -135,6 +138,11 @@ fun SettingsScreen(
     var defaultReaderColorMode by remember { mutableStateOf(settings.defaultReaderColorMode) }
     var isScreenFlashRefreshing by remember { mutableStateOf(false) }
 
+    // State cho GitHub Update
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+    var updateCheckResult by remember { mutableStateOf<String?>(null) }
+    var availableUpdateInfo by remember { mutableStateOf<AppReleaseInfo?>(null) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -210,7 +218,7 @@ fun SettingsScreen(
                         // 4. Credit & Giới thiệu
                         SettingsMenuItem(
                             title = "Credit & Giới thiệu",
-                            subtitle = "InkDex v1.1.1 • Bigme B751C S • MangaDex API",
+                            subtitle = "InkDex v1.2 • Bigme B751C S • MangaDex API",
                             icon = Icons.Default.Info,
                             onClick = { currentSubScreen = SettingsSubScreen.CREDIT }
                         )
@@ -245,29 +253,72 @@ fun SettingsScreen(
                                     }
                                 }
 
-                                Button(
-                                    onClick = {
-                                        EInkHelper.triggerFullEInkRefresh(
-                                            scope = coroutineScope,
-                                            view = localView,
-                                            context = context,
-                                            onFlashStateChange = { isScreenFlashRefreshing = it }
-                                        )
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = EInkBlack, contentColor = EInkWhite),
-                                    shape = RoundedCornerShape(2.dp),
-                                    modifier = Modifier.fillMaxWidth().height(36.dp)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Icon(Icons.Default.Refresh, contentDescription = null, tint = EInkWhite, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("LÀM MỚI E-INK TOÀN MÀN HÌNH", color = EInkWhite, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    Button(
+                                        onClick = {
+                                            EInkHelper.triggerFullEInkRefresh(
+                                                scope = coroutineScope,
+                                                view = localView,
+                                                context = context,
+                                                onFlashStateChange = { isScreenFlashRefreshing = it }
+                                            )
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = EInkBlack, contentColor = EInkWhite),
+                                        shape = RoundedCornerShape(2.dp),
+                                        modifier = Modifier.weight(1f).height(36.dp)
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = null, tint = EInkWhite, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("LÀM MỚI E-INK", color = EInkWhite, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            coroutineScope.launch {
+                                                isCheckingUpdate = true
+                                                updateCheckResult = "Đang kiểm tra..."
+                                                val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.2")
+                                                res.onSuccess { info ->
+                                                    isCheckingUpdate = false
+                                                    if (info.isNewer) {
+                                                        availableUpdateInfo = info
+                                                        updateCheckResult = "🎉 Có bản mới: ${info.tagName}!"
+                                                    } else {
+                                                        updateCheckResult = "✓ Đang ở bản mới nhất v1.2"
+                                                    }
+                                                }.onFailure { err ->
+                                                    isCheckingUpdate = false
+                                                    updateCheckResult = "❌ Lỗi: ${err.localizedMessage}"
+                                                }
+                                            }
+                                        },
+                                        enabled = !isCheckingUpdate,
+                                        shape = RoundedCornerShape(2.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
+                                        modifier = Modifier.weight(1f).height(36.dp)
+                                    ) {
+                                        Text(if (isCheckingUpdate) "Đang check..." else "CẬP NHẬT", color = EInkBlack, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                updateCheckResult?.let {
+                                    Text(
+                                        text = it,
+                                        fontSize = 11.sp,
+                                        color = EInkDarkGray,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
                                 }
                             }
                         }
 
                         // Footer phiên bản
                         Text(
-                            text = "InkDex Manga Reader v1.1.1 • Phiên bản tối ưu E-Ink & Bigme Kaleido 3",
+                            text = "InkDex Manga Reader v1.2 • Phiên bản tối ưu E-Ink & Bigme Kaleido 3",
                             fontSize = 11.sp,
                             color = EInkDarkGray,
                             textAlign = TextAlign.Center,
@@ -1330,7 +1381,7 @@ fun SettingsScreen(
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Card tiêu đề ứng dụng v1.1.1
+                        // Card tiêu đề ứng dụng v1.2
                         Card(
                             shape = RoundedCornerShape(4.dp),
                             colors = CardDefaults.cardColors(containerColor = EInkWhite),
@@ -1349,7 +1400,7 @@ fun SettingsScreen(
                                     color = EInkBlack
                                 )
                                 Text(
-                                    text = "Phiên bản 1.1.1 (Build 3) • Tối ưu E-Ink",
+                                    text = "Phiên bản 1.2 (Build 4) • Tối ưu E-Ink & Cài đặt In-App",
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp,
                                     color = EInkBlack
@@ -1456,6 +1507,14 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
+        )
+    }
+
+    availableUpdateInfo?.let { info ->
+        UpdateDialog(
+            releaseInfo = info,
+            currentVersion = "1.2",
+            onDismiss = { availableUpdateInfo = null }
         )
     }
 
