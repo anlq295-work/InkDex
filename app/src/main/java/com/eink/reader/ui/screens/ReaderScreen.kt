@@ -298,6 +298,8 @@ fun ReaderScreen(
     val nextChapterTitleString = if (isOfflineCbz) nextOfflineCbz?.nameWithoutExtension ?: "" else nextOnlineChapter?.displayTitle ?: ""
     val prevChapterTitleString = if (isOfflineCbz) prevOfflineCbz?.nameWithoutExtension ?: "" else prevOnlineChapter?.displayTitle ?: ""
 
+    var shouldStartAtLastPage by remember { mutableStateOf(false) }
+
     fun loadPages(dataSaver: Boolean, startPage: Int = 0) {
         coroutineScope.launch {
             isLoading = true
@@ -307,10 +309,14 @@ fun ReaderScreen(
                     val files = com.eink.reader.data.download.CbzReader.extractCbzToCache(context, java.io.File(activeChapterId))
                     if (files.isEmpty()) throw java.io.IOException("Không có ảnh trong file CBZ")
                     pageUrls = files.map { it.absolutePath }
-                    currentPageIndex = if (startPage in files.indices) startPage else 0
+                    val finalPage = if (shouldStartAtLastPage) {
+                        shouldStartAtLastPage = false
+                        (files.size - 1).coerceAtLeast(0)
+                    } else if (startPage in files.indices) startPage else 0
+                    currentPageIndex = finalPage
                     isLoading = false
-                    if (startPage > 0 && readingDirection == "VERTICAL") {
-                        webtoonListState.scrollToItem(startPage)
+                    if (finalPage > 0 && readingDirection == "VERTICAL") {
+                        webtoonListState.scrollToItem(finalPage)
                     }
                 } catch (e: Exception) {
                     errorMessage = "Lỗi đọc file CBZ: ${e.localizedMessage}"
@@ -320,10 +326,14 @@ fun ReaderScreen(
                 val result = repository.getChapterPageUrls(activeChapterId, dataSaver)
                 result.onSuccess { urls ->
                     pageUrls = urls
-                    currentPageIndex = if (startPage in urls.indices) startPage else 0
+                    val finalPage = if (shouldStartAtLastPage) {
+                        shouldStartAtLastPage = false
+                        (urls.size - 1).coerceAtLeast(0)
+                    } else if (startPage in urls.indices) startPage else 0
+                    currentPageIndex = finalPage
                     isLoading = false
-                    if (startPage > 0 && readingDirection == "VERTICAL") {
-                        webtoonListState.scrollToItem(startPage)
+                    if (finalPage > 0 && readingDirection == "VERTICAL") {
+                        webtoonListState.scrollToItem(finalPage)
                     }
                 }.onFailure { err ->
                     errorMessage = err.localizedMessage ?: "Không thể tải trang truyện"
@@ -441,14 +451,37 @@ fun ReaderScreen(
         }
     }
 
-    fun goToPrevChapter() {
+    fun goToPrevChapter(fromFirstPage: Boolean = false) {
+        if (fromFirstPage) {
+            shouldStartAtLastPage = true
+        }
         if (isOfflineCbz) {
-            prevOfflineCbz?.let { prevFile ->
+            val prevFile = prevOfflineCbz
+            if (prevFile != null) {
                 executeLoadOfflineCbz(prevFile)
+            } else {
+                shouldStartAtLastPage = false
+                chapterNoticeMessage = "Bạn đã ở chương đầu tiên của truyện!"
+                coroutineScope.launch {
+                    delay(2500)
+                    if (chapterNoticeMessage?.contains("đầu tiên") == true) {
+                        chapterNoticeMessage = null
+                    }
+                }
             }
         } else {
-            prevOnlineChapter?.let { prevCh ->
+            val prevCh = prevOnlineChapter
+            if (prevCh != null) {
                 executeLoadOnlineChapter(prevCh)
+            } else {
+                shouldStartAtLastPage = false
+                chapterNoticeMessage = "Bạn đã ở chương đầu tiên của truyện!"
+                coroutineScope.launch {
+                    delay(2500)
+                    if (chapterNoticeMessage?.contains("đầu tiên") == true) {
+                        chapterNoticeMessage = null
+                    }
+                }
             }
         }
     }
@@ -519,6 +552,9 @@ fun ReaderScreen(
     fun goToPrevPage() {
         if (currentPageIndex > 0) {
             currentPageIndex = (currentPageIndex - pageStep).coerceAtLeast(0)
+        } else {
+            // Đang ở trang đầu tiên: quay về chương trước hoặc thông báo đã là chương đầu
+            goToPrevChapter(fromFirstPage = true)
         }
     }
 
@@ -652,6 +688,9 @@ fun ReaderScreen(
                     coroutineScope.launch {
                         scrollState.scrollTo(scrollState.maxValue)
                     }
+                } else {
+                    // Đang ở trang đầu tiên
+                    goToPrevPage()
                 }
             }
         }
@@ -675,7 +714,7 @@ fun ReaderScreen(
                             }
                         } else {
                             if (!webtoonListState.canScrollBackward) {
-                                if (hasPrevChapter) goToPrevChapter()
+                                goToPrevChapter(fromFirstPage = true)
                             } else {
                                 coroutineScope.launch {
                                     webtoonListState.animateScrollBy(-jumpStepPx.toFloat())
@@ -737,7 +776,11 @@ fun ReaderScreen(
                                         when {
                                             touchY < screenHeight * 0.30f -> {
                                                 coroutineScope.launch {
-                                                    webtoonListState.animateScrollBy(-jumpStepPx.toFloat())
+                                                    if (!webtoonListState.canScrollBackward) {
+                                                        goToPrevChapter(fromFirstPage = true)
+                                                    } else {
+                                                        webtoonListState.animateScrollBy(-jumpStepPx.toFloat())
+                                                    }
                                                 }
                                             }
                                             touchY > screenHeight * 0.70f -> {

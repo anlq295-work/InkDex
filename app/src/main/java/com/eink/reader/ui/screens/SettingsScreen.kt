@@ -1498,7 +1498,7 @@ fun SettingsScreen(
                                     color = EInkBlack
                                 )
                                 Text(
-                                    text = "Phiên bản 1.3.1 (Build 6) • Ưu tiên nhóm dịch & Cảnh báo nhảy chương",
+                                    text = "Phiên bản 1.3.1 (Build 6) • Lùi chương thông minh & Cảnh báo nhảy chương",
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp,
                                     color = EInkBlack
