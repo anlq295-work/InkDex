@@ -53,6 +53,7 @@ fun LibraryScreen(
 
     // Reading History State
     var readingHistoryList by remember { mutableStateOf<List<com.eink.reader.data.repository.ReadingRecord>>(emptyList()) }
+    val coroutineScope = rememberCoroutineScope()
 
     fun refreshHistory() {
         if (repository != null) {
@@ -64,6 +65,32 @@ fun LibraryScreen(
                 records
             }
             readingHistoryList = filtered
+
+            // Tự động quét và vá lại tên truyện / ảnh bìa nếu lịch sử trước đây bị thiếu
+            coroutineScope.launch {
+                var hasUpdates = false
+                for (rec in records) {
+                    val isOffline = rec.mangaId.endsWith(".cbz", ignoreCase = true) || rec.lastChapterId.endsWith(".cbz", ignoreCase = true)
+                    val isTitleInvalid = rec.mangaTitle.isBlank() || rec.mangaTitle == "Truyện không tên" || rec.mangaTitle == "Untitled" || rec.mangaTitle.startsWith("Ch.", ignoreCase = true)
+                    val isCoverMissing = rec.coverUrl.isNullOrBlank()
+                    if (!isOffline && (isTitleInvalid || isCoverMissing)) {
+                        repository.getMangaDetails(rec.mangaId).onSuccess { details ->
+                            val resolvedTitle = details.displayTitle
+                            val resolvedCover = details.getCoverUrl(repository.settingsManager.apiBaseUrl) ?: details.coverUrl
+                            repository.readingHistoryManager.updateMangaInfo(rec.mangaId, resolvedTitle, resolvedCover)
+                            hasUpdates = true
+                        }
+                    }
+                }
+                if (hasUpdates) {
+                    val updated = repository.readingHistoryManager.getAllRecords()
+                    readingHistoryList = if (!allowPornographic) {
+                        updated.filterNot { rec -> repository.tagCacheManager.isPornographic(rec.mangaId) }
+                    } else {
+                        updated
+                    }
+                }
+            }
         }
     }
 
@@ -74,7 +101,6 @@ fun LibraryScreen(
     var selectedFilterStatus by remember { mutableStateOf("all") }
     var isOnlineLoading by remember { mutableStateOf(false) }
     var onlineError by remember { mutableStateOf<String?>(null) }
-    val coroutineScope = rememberCoroutineScope()
 
     val historyListState = androidx.compose.foundation.lazy.rememberLazyListState()
     val downloadedGridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()

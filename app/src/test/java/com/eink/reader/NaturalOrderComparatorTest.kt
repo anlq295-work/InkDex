@@ -1,4 +1,4 @@
-﻿package com.eink.reader
+package com.eink.reader
 
 import com.eink.reader.util.NaturalOrderComparator
 import org.junit.Assert.assertEquals
@@ -44,5 +44,63 @@ class NaturalOrderComparatorTest {
         val num11 = NaturalOrderComparator.parseChapterNumber("Ch.11: Tiêu đề")
         val num1 = NaturalOrderComparator.parseChapterNumber("Ch.1")
         assertTrue(num11 != num1)
+    }
+
+    @Test
+    fun testMangaItemDecodingWithArrayDescription() {
+        val jsonStr = """
+            {
+                "id": "test-manga-1",
+                "type": "manga",
+                "attributes": {
+                    "title": { "ja": "葬送のフリーレン" },
+                    "altTitles": [
+                        { "en": "Frieren: Beyond Journey's End" },
+                        { "vi": "Pháp sư tiễn táng Frieren" }
+                    ],
+                    "description": [],
+                    "originalLanguage": "ja"
+                },
+                "relationships": []
+            }
+        """.trimIndent()
+        val json = kotlinx.serialization.json.Json {
+            ignoreUnknownKeys = true
+            coerceInputValues = true
+            isLenient = true
+        }
+        val manga = json.decodeFromString<com.eink.reader.data.model.MangaItem>(jsonStr)
+        // Ưu tiên tiếng Việt nếu có trong altTitles
+        assertEquals("Pháp sư tiễn táng Frieren", manga.displayTitle)
+        assertEquals("", manga.displayDescription)
+    }
+
+    @Test
+    fun testMangaItemForeignLanguageOnly() {
+        val jsonStr = """
+            {
+                "id": "test-manga-2",
+                "type": "manga",
+                "attributes": {
+                    "title": {},
+                    "altTitles": [
+                        { "fr": "Solo Leveling (Français)" },
+                        { "ko": "나 혼자만 레벨업" }
+                    ],
+                    "description": { "fr": "Description en français" },
+                    "originalLanguage": "ko"
+                },
+                "relationships": []
+            }
+        """.trimIndent()
+        val json = kotlinx.serialization.json.Json {
+            ignoreUnknownKeys = true
+            coerceInputValues = true
+            isLenient = true
+        }
+        val manga = json.decodeFromString<com.eink.reader.data.model.MangaItem>(jsonStr)
+        // Khi không có vi hay en, lấy theo originalLanguage ("ko")
+        assertEquals("나 혼자만 레벨업", manga.displayTitle)
+        assertEquals("Description en français", manga.displayDescription)
     }
 }

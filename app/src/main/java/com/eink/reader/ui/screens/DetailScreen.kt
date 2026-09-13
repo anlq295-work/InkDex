@@ -97,12 +97,22 @@ fun DetailScreen(
     LaunchedEffect(mangaId) {
         coroutineScope.launch {
             isLoading = true
-            repository.getMangaDetails(mangaId).onSuccess {
-                manga = it
+            var targetLang = selectedLanguage
+            repository.getMangaDetails(mangaId).onSuccess { details ->
+                manga = details
+                val available = details.attributes.availableTranslatedLanguages
+                if (available.isNotEmpty() && !available.contains(selectedLanguage)) {
+                    targetLang = when {
+                        available.contains("vi") -> "vi"
+                        available.contains("en") -> "en"
+                        else -> available.first()
+                    }
+                    selectedLanguage = targetLang
+                }
             }.onFailure {
                 errorMessage = it.localizedMessage
             }
-            loadChapters(selectedLanguage)
+            loadChapters(targetLang)
         }
         if (repository.settingsManager.isLoggedIn) {
             coroutineScope.launch {

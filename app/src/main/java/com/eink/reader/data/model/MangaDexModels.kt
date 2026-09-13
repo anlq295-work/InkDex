@@ -1,7 +1,43 @@
 package com.eink.reader.data.model
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+
+/**
+ * Serializer an toàn cho Map<String, String>:
+ * Tự động chuyển đổi nếu MangaDex trả về mảng rỗng [] thay vì object {} khi không có mô tả hoặc tiêu đề.
+ */
+object SafeStringMapSerializer : KSerializer<Map<String, String>> {
+    override val descriptor: SerialDescriptor = MapSerializer(String.serializer(), String.serializer()).descriptor
+
+    override fun serialize(encoder: Encoder, value: Map<String, String>) {
+        MapSerializer(String.serializer(), String.serializer()).serialize(encoder, value)
+    }
+
+    override fun deserialize(decoder: Decoder): Map<String, String> {
+        val jsonInput = decoder as? JsonDecoder ?: return emptyMap()
+        return when (val element = jsonInput.decodeJsonElement()) {
+            is JsonObject -> {
+                element.mapNotNull { (k, v) ->
+                    if (v is JsonPrimitive && v.isString) k to v.content
+                    else null
+                }.toMap()
+            }
+            is JsonArray -> emptyMap()
+            else -> emptyMap()
+        }
+    }
+}
 
 @Serializable
 data class MangaListResponse(
@@ -20,17 +56,51 @@ data class MangaItem(
     val relationships: List<Relationship> = emptyList()
 ) {
     val displayTitle: String
-        get() = attributes.title["en"]
-            ?: attributes.title["vi"]
-            ?: attributes.title["ja-ro"]
-            ?: attributes.title.values.firstOrNull()
-            ?: "Untitled"
+        get() {
+            // 1. Tiêu đề ưu tiên: Tiếng Việt -> Tiếng Anh -> Phiên âm Nhật (ja-ro)
+            val viTitle = attributes.title["vi"]?.takeIf { it.isNotBlank() }
+                ?: attributes.altTitles.firstNotNullOfOrNull { it["vi"]?.takeIf { s -> s.isNotBlank() } }
+            if (!viTitle.isNullOrBlank()) return viTitle
+
+            val enTitle = attributes.title["en"]?.takeIf { it.isNotBlank() }
+                ?: attributes.altTitles.firstNotNullOfOrNull { it["en"]?.takeIf { s -> s.isNotBlank() } }
+            if (!enTitle.isNullOrBlank()) return enTitle
+
+            val jaRoTitle = attributes.title["ja-ro"]?.takeIf { it.isNotBlank() }
+                ?: attributes.altTitles.firstNotNullOfOrNull { it["ja-ro"]?.takeIf { s -> s.isNotBlank() } }
+            if (!jaRoTitle.isNullOrBlank()) return jaRoTitle
+
+            // 2. Tiêu đề theo ngôn ngữ gốc của truyện (ví dụ: "ja", "ko", "zh", "fr", "es", "ru"...)
+            val origLang = attributes.originalLanguage
+            if (!origLang.isNullOrBlank()) {
+                val origTitle = attributes.title[origLang]?.takeIf { it.isNotBlank() }
+                    ?: attributes.altTitles.firstNotNullOfOrNull { it[origLang]?.takeIf { s -> s.isNotBlank() } }
+                if (!origTitle.isNullOrBlank()) return origTitle
+            }
+
+            // 3. Tiêu đề đầu tiên bất kỳ trong map title chính
+            val firstTitle = attributes.title.values.firstOrNull { it.isNotBlank() }
+            if (!firstTitle.isNullOrBlank()) return firstTitle
+
+            // 4. Tiêu đề đầu tiên bất kỳ trong altTitles
+            val firstAlt = attributes.altTitles.firstNotNullOfOrNull { alt ->
+                alt.values.firstOrNull { it.isNotBlank() }
+            }
+            if (!firstAlt.isNullOrBlank()) return firstAlt
+
+            return "Untitled"
+        }
 
     val displayDescription: String
-        get() = attributes.description["vi"]
-            ?: attributes.description["en"]
-            ?: attributes.description.values.firstOrNull()
-            ?: ""
+        get() {
+            val vi = attributes.description["vi"]?.takeIf { it.isNotBlank() }
+            if (!vi.isNullOrBlank()) return vi
+            val en = attributes.description["en"]?.takeIf { it.isNotBlank() }
+            if (!en.isNullOrBlank()) return en
+            val orig = attributes.originalLanguage?.let { attributes.description[it]?.takeIf { s -> s.isNotBlank() } }
+            if (!orig.isNullOrBlank()) return orig
+            return attributes.description.values.firstOrNull { it.isNotBlank() } ?: ""
+        }
 
     val coverFileName: String?
         get() = relationships.firstOrNull { it.type == "cover_art" && !it.attributes?.fileName.isNullOrBlank() }?.attributes?.fileName
@@ -66,7 +136,10 @@ data class MangaItem(
 
 @Serializable
 data class MangaAttributes(
+    @Serializable(with = SafeStringMapSerializer::class)
     val title: Map<String, String> = emptyMap(),
+    val altTitles: List<@Serializable(with = SafeStringMapSerializer::class) Map<String, String>> = emptyList(),
+    @Serializable(with = SafeStringMapSerializer::class)
     val description: Map<String, String> = emptyMap(),
     val originalLanguage: String? = null,
     val availableTranslatedLanguages: List<String> = emptyList(),
@@ -84,6 +157,7 @@ data class TagItem(
 
 @Serializable
 data class TagAttributes(
+    @Serializable(with = SafeStringMapSerializer::class)
     val name: Map<String, String> = emptyMap()
 )
 

@@ -354,14 +354,14 @@ fun SettingsScreen(
                                             coroutineScope.launch {
                                                 isCheckingUpdate = true
                                                 updateCheckResult = "Đang kiểm tra..."
-                                                val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.4")
+                                                val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.4.1")
                                                 res.onSuccess { info ->
                                                     isCheckingUpdate = false
                                                     if (info.isNewer) {
                                                         availableUpdateInfo = info
                                                         updateCheckResult = "🎉 Có bản mới: ${info.tagName}!"
                                                     } else {
-                                                        updateCheckResult = "✓ Đang ở bản mới nhất v1.4"
+                                                        updateCheckResult = "✓ Đang ở bản mới nhất v1.4.1"
                                                     }
                                                 }.onFailure { err ->
                                                     isCheckingUpdate = false

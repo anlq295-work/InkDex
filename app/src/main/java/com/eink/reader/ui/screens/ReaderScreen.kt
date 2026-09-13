@@ -59,6 +59,8 @@ fun ReaderScreen(
 ) {
     var activeChapterId by remember(chapterId) { mutableStateOf(chapterId) }
     var activeChapterTitle by remember(chapterTitle) { mutableStateOf(chapterTitle) }
+    var activeMangaTitle by remember(mangaTitle) { mutableStateOf(mangaTitle) }
+    var activeCoverUrl by remember(coverUrl) { mutableStateOf(coverUrl) }
     var pageUrls by remember { mutableStateOf<List<String>>(emptyList()) }
     var currentPageIndex by remember { mutableIntStateOf(0) }
     var isLoading by remember { mutableStateOf(true) }
@@ -174,6 +176,26 @@ fun ReaderScreen(
                 val cbzs = parent.listFiles { f -> f.extension.equals("cbz", ignoreCase = true) }
                     ?.sortedWith(NaturalOrderComparator.FileComparator) ?: emptyList()
                 siblingCbzFiles = cbzs
+            }
+        }
+    }
+
+    // Tự động tải bù thông tin manga (tên truyện và ảnh bìa) nếu bị thiếu hoặc không chính xác
+    LaunchedEffect(mangaId) {
+        if (!isOfflineCbz && !mangaId.isNullOrBlank()) {
+            val needsTitle = activeMangaTitle.isNullOrBlank() || activeMangaTitle == "Untitled" || activeMangaTitle?.startsWith("Ch.", ignoreCase = true) == true
+            val needsCover = activeCoverUrl.isNullOrBlank()
+            if (needsTitle || needsCover) {
+                repository.getMangaDetails(mangaId).onSuccess { details ->
+                    val resolved = details.displayTitle
+                    if (needsTitle && resolved.isNotBlank() && resolved != "Untitled") {
+                        activeMangaTitle = resolved
+                    }
+                    val cover = details.getCoverUrl(repository.settingsManager.apiBaseUrl) ?: details.coverUrl
+                    if (needsCover && !cover.isNullOrBlank()) {
+                        activeCoverUrl = cover
+                    }
+                }
             }
         }
     }
@@ -498,12 +520,16 @@ fun ReaderScreen(
     }
 
     // Tự động lưu tiến độ đọc vào ReadingHistoryManager trên máy
-    LaunchedEffect(currentPageIndex, pageUrls.size, activeChapterId) {
+    LaunchedEffect(currentPageIndex, pageUrls.size, activeChapterId, activeMangaTitle, activeCoverUrl) {
         if (!mangaId.isNullOrBlank() && pageUrls.isNotEmpty()) {
+            val finalMangaTitle = activeMangaTitle?.takeIf { it.isNotBlank() && it != "Untitled" && !it.startsWith("Ch.", ignoreCase = true) }
+                ?: mangaTitle?.takeIf { it.isNotBlank() && it != "Untitled" && !it.startsWith("Ch.", ignoreCase = true) }
+                ?: activeChapterTitle
+
             repository.readingHistoryManager.saveProgress(
                 mangaId = mangaId,
-                mangaTitle = mangaTitle ?: activeChapterTitle,
-                coverUrl = coverUrl,
+                mangaTitle = finalMangaTitle,
+                coverUrl = activeCoverUrl ?: coverUrl,
                 chapterId = activeChapterId,
                 chapterTitle = activeChapterTitle,
                 page = currentPageIndex + 1,

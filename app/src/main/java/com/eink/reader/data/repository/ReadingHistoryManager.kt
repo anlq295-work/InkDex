@@ -81,12 +81,23 @@ class ReadingHistoryManager private constructor(context: Context) {
 
         val currentList = getAllRecords().toMutableList()
         val existingIndex = currentList.indexOfFirst { it.mangaId == mangaId }
-
         val existingRecord = currentList.getOrNull(existingIndex)
+
+        // Bảo toàn tên truyện chính xác: Tránh bị ghi đè bởi "Ch.1..." hay "Truyện không tên"
+        val resolvedTitle = when {
+            mangaTitle.isNotBlank() && mangaTitle != "Truyện không tên" && mangaTitle != "Untitled" && !mangaTitle.startsWith("Ch.", ignoreCase = true) -> mangaTitle
+            existingRecord != null && existingRecord.mangaTitle.isNotBlank() && existingRecord.mangaTitle != "Truyện không tên" && existingRecord.mangaTitle != "Untitled" && !existingRecord.mangaTitle.startsWith("Ch.", ignoreCase = true) -> existingRecord.mangaTitle
+            mangaTitle.isNotBlank() -> mangaTitle
+            else -> existingRecord?.mangaTitle ?: "Truyện không tên"
+        }
+
+        // Bảo toàn ảnh bìa: Nếu param mới null/rỗng thì giữ lại ảnh bìa cũ
+        val resolvedCover = coverUrl?.takeIf { it.isNotBlank() } ?: existingRecord?.coverUrl
+
         val newRecord = ReadingRecord(
             mangaId = mangaId,
-            mangaTitle = mangaTitle.ifBlank { "Truyện không tên" },
-            coverUrl = coverUrl ?: existingRecord?.coverUrl,
+            mangaTitle = resolvedTitle,
+            coverUrl = resolvedCover,
             lastChapterId = chapterId,
             lastChapterTitle = chapterTitle.ifBlank { "Chương đọc" },
             lastChapterNumber = chapterNumber ?: existingRecord?.lastChapterNumber,
@@ -111,6 +122,27 @@ class ReadingHistoryManager private constructor(context: Context) {
 
         // Đánh dấu chương này là đã đọc
         markChapterRead(mangaId, chapterId)
+    }
+
+    /**
+     * Cập nhật tiêu đề hoặc ảnh bìa bổ sung cho một bộ truyện trong lịch sử đọc
+     */
+    fun updateMangaInfo(mangaId: String, title: String?, coverUrl: String?) {
+        if (mangaId.isBlank()) return
+        val currentList = getAllRecords().toMutableList()
+        val index = currentList.indexOfFirst { it.mangaId == mangaId }
+        if (index >= 0) {
+            val old = currentList[index]
+            val newTitle = if (!title.isNullOrBlank() && title != "Untitled" && !title.startsWith("Ch.", ignoreCase = true)) title else old.mangaTitle
+            val newCover = if (!coverUrl.isNullOrBlank()) coverUrl else old.coverUrl
+            if (newTitle != old.mangaTitle || newCover != old.coverUrl) {
+                currentList[index] = old.copy(mangaTitle = newTitle, coverUrl = newCover)
+                try {
+                    val serialized = json.encodeToString(currentList)
+                    prefs.edit().putString(KEY_HISTORY, serialized).apply()
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     /**

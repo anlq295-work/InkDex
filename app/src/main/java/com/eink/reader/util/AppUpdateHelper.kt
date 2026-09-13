@@ -60,7 +60,7 @@ object AppUpdateHelper {
      */
     suspend fun checkForUpdate(
         client: OkHttpClient = OkHttpClient(),
-        currentVersion: String = "1.4"
+        currentVersion: String = "1.4.1"
     ): Result<AppReleaseInfo> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder()
@@ -193,7 +193,7 @@ object AppUpdateHelper {
         try {
             val request = Request.Builder()
                 .url(apkUrl)
-                .addHeader("User-Agent", "InkDex-EReader/1.4")
+                .addHeader("User-Agent", "InkDex-EReader/1.4.1")
                 .build()
 
             val response = client.newCall(request).execute()
