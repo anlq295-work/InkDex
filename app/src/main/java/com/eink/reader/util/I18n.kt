@@ -106,7 +106,89 @@ data class AppStrings(
     val confirm: String,
     val done: String,
     val autoUpdateNotice: String
-)
+) {
+    fun mergeWith(overrides: Map<String, String>): AppStrings {
+        if (overrides.isEmpty()) return this
+        return copy(
+            navExplore = overrides["navExplore"] ?: navExplore,
+            navLibrary = overrides["navLibrary"] ?: navLibrary,
+            navSettings = overrides["navSettings"] ?: navSettings,
+            searchPlaceholder = overrides["searchPlaceholder"] ?: searchPlaceholder,
+            sectionPopular = overrides["sectionPopular"] ?: sectionPopular,
+            sectionLatest = overrides["sectionLatest"] ?: sectionLatest,
+            sectionNewTitles = overrides["sectionNewTitles"] ?: sectionNewTitles,
+            sectionRecentlyAdded = overrides["sectionRecentlyAdded"] ?: sectionRecentlyAdded,
+            viewAll = overrides["viewAll"] ?: viewAll,
+            randomManga = overrides["randomManga"] ?: randomManga,
+            filterAll = overrides["filterAll"] ?: filterAll,
+            filterManga = overrides["filterManga"] ?: filterManga,
+            filterManhwa = overrides["filterManhwa"] ?: filterManhwa,
+            filterManhua = overrides["filterManhua"] ?: filterManhua,
+            detailTitle = overrides["detailTitle"] ?: detailTitle,
+            startReading = overrides["startReading"] ?: startReading,
+            continueReading = overrides["continueReading"] ?: continueReading,
+            chapterList = overrides["chapterList"] ?: chapterList,
+            follow = overrides["follow"] ?: follow,
+            followed = overrides["followed"] ?: followed,
+            readingStatus = overrides["readingStatus"] ?: readingStatus,
+            statusReading = overrides["statusReading"] ?: statusReading,
+            statusCompleted = overrides["statusCompleted"] ?: statusCompleted,
+            statusOnHold = overrides["statusOnHold"] ?: statusOnHold,
+            statusDropped = overrides["statusDropped"] ?: statusDropped,
+            statusPlanToRead = overrides["statusPlanToRead"] ?: statusPlanToRead,
+            author = overrides["author"] ?: author,
+            status = overrides["status"] ?: status,
+            originalLanguage = overrides["originalLanguage"] ?: originalLanguage,
+            sortAscending = overrides["sortAscending"] ?: sortAscending,
+            sortDescending = overrides["sortDescending"] ?: sortDescending,
+            filterLanguage = overrides["filterLanguage"] ?: filterLanguage,
+            langAll = overrides["langAll"] ?: langAll,
+            noChapters = overrides["noChapters"] ?: noChapters,
+            downloadAll = overrides["downloadAll"] ?: downloadAll,
+            pageIndicator = overrides["pageIndicator"] ?: pageIndicator,
+            prevChapter = overrides["prevChapter"] ?: prevChapter,
+            nextChapter = overrides["nextChapter"] ?: nextChapter,
+            chapterNotice = overrides["chapterNotice"] ?: chapterNotice,
+            readingSettings = overrides["readingSettings"] ?: readingSettings,
+            readingDirection = overrides["readingDirection"] ?: readingDirection,
+            fitWidth = overrides["fitWidth"] ?: fitWidth,
+            fitHeight = overrides["fitHeight"] ?: fitHeight,
+            continuousScroll = overrides["continuousScroll"] ?: continuousScroll,
+            pagedMode = overrides["pagedMode"] ?: pagedMode,
+            settingsTitle = overrides["settingsTitle"] ?: settingsTitle,
+            personalSettings = overrides["personalSettings"] ?: personalSettings,
+            personalSubtitle = overrides["personalSubtitle"] ?: personalSubtitle,
+            readerSettings = overrides["readerSettings"] ?: readerSettings,
+            readerSubtitle = overrides["readerSubtitle"] ?: readerSubtitle,
+            eInkSupport = overrides["eInkSupport"] ?: eInkSupport,
+            eInkSubtitle = overrides["eInkSubtitle"] ?: eInkSubtitle,
+            creditAbout = overrides["creditAbout"] ?: creditAbout,
+            creditSubtitle = overrides["creditSubtitle"] ?: creditSubtitle,
+            languageSettings = overrides["languageSettings"] ?: languageSettings,
+            appLanguage = overrides["appLanguage"] ?: appLanguage,
+            appLanguageSubtitle = overrides["appLanguageSubtitle"] ?: appLanguageSubtitle,
+            preferredReadingLanguage = overrides["preferredReadingLanguage"] ?: preferredReadingLanguage,
+            preferredReadingLanguageSubtitle = overrides["preferredReadingLanguageSubtitle"] ?: preferredReadingLanguageSubtitle,
+            themeMode = overrides["themeMode"] ?: themeMode,
+            themeLight = overrides["themeLight"] ?: themeLight,
+            themeDark = overrides["themeDark"] ?: themeDark,
+            themeSystem = overrides["themeSystem"] ?: themeSystem,
+            remoteConfigTitle = overrides["remoteConfigTitle"] ?: remoteConfigTitle,
+            remoteConfigSync = overrides["remoteConfigSync"] ?: remoteConfigSync,
+            checkUpdate = overrides["checkUpdate"] ?: checkUpdate,
+            hardwareInfo = overrides["hardwareInfo"] ?: hardwareInfo,
+            refreshEInk = overrides["refreshEInk"] ?: refreshEInk,
+            loading = overrides["loading"] ?: loading,
+            error = overrides["error"] ?: error,
+            retry = overrides["retry"] ?: retry,
+            close = overrides["close"] ?: close,
+            cancel = overrides["cancel"] ?: cancel,
+            confirm = overrides["confirm"] ?: confirm,
+            done = overrides["done"] ?: done,
+            autoUpdateNotice = overrides["autoUpdateNotice"] ?: autoUpdateNotice
+        )
+    }
+}
 
 object I18n {
 
@@ -590,8 +672,26 @@ object I18n {
         autoUpdateNotice = "📥 최신 업데이트를 자동으로 다운로드하는 중..."
     )
 
+    private val dynamicOverrides = java.util.concurrent.ConcurrentHashMap<String, MutableMap<String, String>>()
+    val patchVersionFlow = kotlinx.coroutines.flow.MutableStateFlow(0)
+
+    fun applyPatch(stringsMap: Map<String, Map<String, String>>) {
+        stringsMap.forEach { (lang, map) ->
+            val key = lang.lowercase().trim()
+            val existing = dynamicOverrides.getOrPut(key) { mutableMapOf() }
+            existing.putAll(map)
+        }
+        patchVersionFlow.value += 1
+    }
+
+    fun clearPatch() {
+        dynamicOverrides.clear()
+        patchVersionFlow.value += 1
+    }
+
     fun getStrings(langCode: String): AppStrings {
-        return when (langCode.lowercase()) {
+        val cleanCode = langCode.lowercase().trim()
+        val base = when (cleanCode) {
             "en" -> ENGLISH_STRINGS
             "fr" -> FRENCH_STRINGS
             "es" -> SPANISH_STRINGS
@@ -599,6 +699,8 @@ object I18n {
             "ko" -> KOREAN_STRINGS
             else -> VIETNAMESE_STRINGS
         }
+        val overrides = dynamicOverrides[cleanCode] ?: dynamicOverrides[base.langCode]
+        return if (!overrides.isNullOrEmpty()) base.mergeWith(overrides) else base
     }
 }
 

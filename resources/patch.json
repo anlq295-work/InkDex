@@ -1,0 +1,19 @@
+{
+  "patch_version": 1,
+  "updated_at": "2026-09-13",
+  "changelog": "Gói tài nguyên v1: Tối ưu từ điển 6 ngôn ngữ và bổ sung tiền tố chương tiếng Việt",
+  "strings": {
+    "vi": {
+      "continueReading": "ĐỌC TIEP",
+      "checkUpdate": "Kiểm tra cập nhật"
+    },
+    "en": {
+      "continueReading": "CONTINUE READING",
+      "checkUpdate": "Check for Updates"
+    }
+  },
+  "chapter_rules": {
+    "extra_prefixes": ["hồi", "phần", "tg���t", "màn", "act", "scene", "epha", "side", "omake", "extra"],
+    "custom_regex": null
+  }
+}

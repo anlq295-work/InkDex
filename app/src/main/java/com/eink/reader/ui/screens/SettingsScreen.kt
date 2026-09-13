@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.eink.reader.data.download.DownloadManager
 import com.eink.reader.data.model.EInkColorMode
 import com.eink.reader.data.repository.MangaRepository
+import com.eink.reader.ui.components.ResourcePatchDialog
 import com.eink.reader.ui.components.UpdateDialog
 import com.eink.reader.ui.theme.*
 import com.eink.reader.util.AppReleaseInfo
@@ -155,6 +156,12 @@ fun SettingsScreen(
     val remoteConfig by repository.remoteConfigManager.configFlow.collectAsState()
     var isSyncingRemoteConfig by remember { mutableStateOf(false) }
     var remoteConfigSyncResult by remember { mutableStateOf<String?>(null) }
+
+    // State cho Resource Patch (Cập nhật tài nguyên như game)
+    val currentPatchVersion by repository.resourceManager.currentPatchVersion.collectAsState()
+    var isCheckingPatch by remember { mutableStateOf(false) }
+    var patchCheckResult by remember { mutableStateOf<String?>(null) }
+    var availablePatchInfo by remember { mutableStateOf<com.eink.reader.data.model.ResourcePatch?>(null) }
 
     Scaffold(
         topBar = {
@@ -471,6 +478,80 @@ fun SettingsScreen(
                                 }
 
                                 remoteConfigSyncResult?.let {
+                                    Text(
+                                        text = it,
+                                        fontSize = 11.sp,
+                                        color = EInkDarkGray,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+                        }
+
+                        // Thẻ: Cập nhật tài nguyên In-App (Game Patch)
+                        Card(
+                            shape = RoundedCornerShape(4.dp),
+                            colors = CardDefaults.cardColors(containerColor = EInkSurface),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EInkBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Gói tài nguyên In-App (Resource Patch):", fontSize = 11.sp, color = EInkDarkGray)
+                                        val patchText = if (currentPatchVersion > 0) "Patch v$currentPatchVersion (Đã nạp)" else "Chưa có patch (Mặc định)"
+                                        Text(
+                                            text = patchText,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = EInkBlack
+                                        )
+                                        Text(
+                                            text = "Cập nhật từ điển ngôn ngữ & quy tắc không cần tải APK",
+                                            fontSize = 10.sp,
+                                            color = EInkDarkGray
+                                        )
+                                    }
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            isCheckingPatch = true
+                                            patchCheckResult = "Đang kiểm tra gói tài nguyên..."
+                                            val res = repository.resourceManager.checkForPatch(force = true)
+                                            isCheckingPatch = false
+                                            res.onSuccess { p ->
+                                                if (p != null) {
+                                                    availablePatchInfo = p
+                                                    patchCheckResult = "🎉 Có gói patch mới: v${p.patchVersion}!"
+                                                } else {
+                                                    patchCheckResult = "✓ Đang ở gói tài nguyên mới nhất (Patch v$currentPatchVersion)"
+                                                }
+                                            }.onFailure { err ->
+                                                patchCheckResult = "❌ Lỗi: ${err.localizedMessage}"
+                                            }
+                                        }
+                                    },
+                                    enabled = !isCheckingPatch,
+                                    shape = RoundedCornerShape(2.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
+                                    modifier = Modifier.fillMaxWidth().height(36.dp)
+                                ) {
+                                    Icon(Icons.Default.CloudDownload, contentDescription = null, tint = EInkBlack, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(if (isCheckingPatch) "Đang kiểm tra..." else "KIỂM TRA & TẢI PATCH (IN-APP)", color = EInkBlack, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                patchCheckResult?.let {
                                     Text(
                                         text = it,
                                         fontSize = 11.sp,
@@ -2030,6 +2111,22 @@ fun SettingsScreen(
             containerColor = EInkWhite,
             shape = RoundedCornerShape(4.dp),
             modifier = Modifier.border(2.dp, EInkBlack, RoundedCornerShape(4.dp))
+        )
+    }
+
+    availablePatchInfo?.let { patch ->
+        ResourcePatchDialog(
+            resourceManager = repository.resourceManager,
+            patch = patch,
+            onDismiss = { availablePatchInfo = null }
+        )
+    }
+
+    availableUpdateInfo?.let { info ->
+        UpdateDialog(
+            releaseInfo = info,
+            currentVersion = "1.6",
+            onDismiss = { availableUpdateInfo = null }
         )
     }
 }

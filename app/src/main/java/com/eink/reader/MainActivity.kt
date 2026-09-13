@@ -91,7 +91,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            val appStrings = remember(appLanguage) { com.eink.reader.util.I18n.getStrings(appLanguage) }
+            val patchVersion by com.eink.reader.util.I18n.patchVersionFlow.collectAsState()
+            val appStrings = remember(appLanguage, patchVersion) { com.eink.reader.util.I18n.getStrings(appLanguage) }
 
             val systemInDark = androidx.compose.foundation.isSystemInDarkTheme()
             val isAppDark = when {
@@ -120,6 +121,7 @@ class MainActivity : ComponentActivity() {
 
                     val isBottomBarVisible = currentRoute in listOf("home", "library", "settings")
                     var startupUpdateInfo by remember { mutableStateOf<AppReleaseInfo?>(null) }
+                    var availablePatchInfo by remember { mutableStateOf<com.eink.reader.data.model.ResourcePatch?>(null) }
                     val remoteConfig by repository.remoteConfigManager.configFlow.collectAsState()
                     var dismissedNoticeMessage by rememberSaveable { mutableStateOf("") }
                     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -137,6 +139,12 @@ class MainActivity : ComponentActivity() {
                                         delay(1500)
                                         // Tự động đồng bộ Remote Config ngầm định kỳ (nếu > 6h)
                                         repository.remoteConfigManager.syncRemoteConfig(force = false)
+                                        // Kiểm tra gói tài nguyên mới từ xa (phong cách Game)
+                                        repository.resourceManager.checkForPatch(force = false).onSuccess { patch ->
+                                            if (patch != null) {
+                                                availablePatchInfo = patch
+                                            }
+                                        }
                                         val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.6")
                                         res.onSuccess { info ->
                                             if (info.isNewer) {
@@ -449,6 +457,14 @@ class MainActivity : ComponentActivity() {
                                     initialPage = initialPage
                                 )
                             }
+                        }
+
+                        availablePatchInfo?.let { patch ->
+                            com.eink.reader.ui.components.ResourcePatchDialog(
+                                resourceManager = repository.resourceManager,
+                                patch = patch,
+                                onDismiss = { availablePatchInfo = null }
+                            )
                         }
 
                         startupUpdateInfo?.let { info ->
