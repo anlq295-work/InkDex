@@ -143,7 +143,7 @@ class MainActivity : ComponentActivity() {
                                                 availablePatchInfo = cfg
                                             }
                                         }
-                                        val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.6")
+                                        val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.6.1")
                                         res.onSuccess { info ->
                                             if (info.isNewer) {
                                                 startupUpdateInfo = info
@@ -468,7 +468,7 @@ class MainActivity : ComponentActivity() {
                         startupUpdateInfo?.let { info ->
                             UpdateDialog(
                                 releaseInfo = info,
-                                currentVersion = "1.6",
+                                currentVersion = "1.6.1",
                                 onDismiss = { startupUpdateInfo = null }
                             )
                         }

@@ -103,7 +103,7 @@ class RemoteConfigManager private constructor(private val context: Context) {
                 .url(REMOTE_CONFIG_URL)
                 .addHeader("Accept", "application/json")
                 .addHeader("Cache-Control", "no-cache")
-                .addHeader("User-Agent", "InkDex-EReader/1.6")
+                .addHeader("User-Agent", "InkDex-EReader/1.6.1")
                 .build()
 
             val response = httpClient.newCall(request).execute()
@@ -144,7 +144,7 @@ class RemoteConfigManager private constructor(private val context: Context) {
                 .url(REMOTE_CONFIG_URL)
                 .addHeader("Accept", "application/json")
                 .addHeader("Cache-Control", "no-cache")
-                .addHeader("User-Agent", "InkDex-EReader/1.6")
+                .addHeader("User-Agent", "InkDex-EReader/1.6.1")
                 .build()
 
             val response = httpClient.newCall(request).execute()
