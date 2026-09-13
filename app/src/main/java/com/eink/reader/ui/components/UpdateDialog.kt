@@ -37,7 +37,7 @@ private enum class UpdateDownloadState {
 @Composable
 fun UpdateDialog(
     releaseInfo: AppReleaseInfo,
-    currentVersion: String = "1.4.1",
+    currentVersion: String = "1.4.2",
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
