@@ -48,6 +48,7 @@ fun HomeScreen(
     onCategoryClick: (String, String, String) -> Unit,
     onSettingsClick: () -> Unit = {}
 ) {
+    val strings = com.eink.reader.util.LocalAppStrings.current
     var searchQuery by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<MangaItem>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
@@ -260,7 +261,7 @@ fun HomeScreen(
                             searchResults = emptyList()
                         }
                     },
-                    placeholder = { Text("Nhập tên truyện cần tìm...", color = Color.Gray) },
+                    placeholder = { Text(strings.searchPlaceholder, color = Color.Gray) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = {
@@ -491,10 +492,10 @@ fun HomeScreen(
                         // 1. Feed updates / Chương mới cập nhật
                         if (latestUploadsList.isNotEmpty()) {
                             FeedCategoryRow(
-                                title = "Mới cập nhật chương (Latest Uploads)",
+                                title = strings.sectionLatest,
                                 mangaList = latestUploadsList,
                                 repository = repository,
-                                onSeeAllClick = { onCategoryClick("latest_uploads", "Mới Cập Nhật Chương", "all") },
+                                onSeeAllClick = { onCategoryClick("latest_uploads", strings.sectionLatest, "all") },
                                 onMangaClick = onMangaClick
                             )
                         }
@@ -502,10 +503,10 @@ fun HomeScreen(
                         // 2. Truyện mới nổi bật (Popular New Titles)
                         if (popularNewList.isNotEmpty()) {
                             FeedCategoryRow(
-                                title = "Truyện mới nổi bật (Popular New Titles)",
+                                title = strings.sectionNewTitles,
                                 mangaList = popularNewList,
                                 repository = repository,
-                                onSeeAllClick = { onCategoryClick("popular_new", "Truyện Mới Nổi Bật", "all") },
+                                onSeeAllClick = { onCategoryClick("popular_new", strings.sectionNewTitles, "all") },
                                 onMangaClick = onMangaClick
                             )
                         }
@@ -513,10 +514,10 @@ fun HomeScreen(
                         // 3. Mới thêm gần đây (Recently Added)
                         if (recentlyAddedList.isNotEmpty()) {
                             FeedCategoryRow(
-                                title = "Mới thêm gần đây (Recently Added)",
+                                title = strings.sectionRecentlyAdded,
                                 mangaList = recentlyAddedList,
                                 repository = repository,
-                                onSeeAllClick = { onCategoryClick("recently_added", "Mới Thêm Gần Đây", "all") },
+                                onSeeAllClick = { onCategoryClick("recently_added", strings.sectionRecentlyAdded, "all") },
                                 onMangaClick = onMangaClick
                             )
                         }
@@ -524,10 +525,10 @@ fun HomeScreen(
                         // 4. Khám phá ngẫu nhiên (Random)
                         if (randomList.isNotEmpty()) {
                             FeedCategoryRow(
-                                title = "Khám phá ngẫu nhiên (Random Titles)",
+                                title = strings.randomManga,
                                 mangaList = randomList,
                                 repository = repository,
-                                onSeeAllClick = { onCategoryClick("random", "Khám Phá Ngẫu Nhiên", "all") },
+                                onSeeAllClick = { onCategoryClick("random", strings.randomManga, "all") },
                                 onMangaClick = onMangaClick
                             )
                         }
@@ -535,10 +536,10 @@ fun HomeScreen(
                         // 5. Nhiều người theo dõi nhất (Popular)
                         if (popularList.isNotEmpty()) {
                             FeedCategoryRow(
-                                title = "Được theo dõi nhiều nhất (Most Popular)",
+                                title = strings.sectionPopular,
                                 mangaList = popularList,
                                 repository = repository,
-                                onSeeAllClick = { onCategoryClick("popular", "Được Theo Dõi Nhiều Nhất", "all") },
+                                onSeeAllClick = { onCategoryClick("popular", strings.sectionPopular, "all") },
                                 onMangaClick = onMangaClick
                             )
                         }
@@ -624,7 +625,8 @@ fun FeedCategoryRow(
                     .border(1.dp, EInkBorder, RoundedCornerShape(2.dp))
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
-                Text(text = "Xem tất cả", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = EInkBlack)
+                val strings = com.eink.reader.util.LocalAppStrings.current
+                Text(text = strings.viewAll, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = EInkBlack)
                 Spacer(modifier = Modifier.width(2.dp))
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(12.dp), tint = EInkBlack)
             }
@@ -653,6 +655,7 @@ fun MangaRowCard(
     manga: MangaItem,
     onClick: () -> Unit
 ) {
+    val currentAppLang = repository.settingsManager.appLanguage
     Card(
         modifier = Modifier
             .width(125.dp)
@@ -672,7 +675,7 @@ fun MangaRowCard(
                 if (!manga.coverUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = manga.getCoverUrl(repository.settingsManager.apiBaseUrl) ?: manga.coverUrl,
-                        contentDescription = manga.displayTitle,
+                        contentDescription = manga.getDisplayTitle(currentAppLang),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxSize()
@@ -689,7 +692,7 @@ fun MangaRowCard(
                     .padding(6.dp)
             ) {
                 Text(
-                    text = manga.displayTitle,
+                    text = manga.getDisplayTitle(currentAppLang),
                     style = MaterialTheme.typography.titleMedium.copy(fontSize = 12.sp, lineHeight = 16.sp),
                     minLines = 2,
                     maxLines = 2,
@@ -714,6 +717,7 @@ fun MangaGridCard(
     manga: MangaItem,
     onClick: () -> Unit
 ) {
+    val currentAppLang = repository.settingsManager.appLanguage
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -733,7 +737,7 @@ fun MangaGridCard(
                 if (!manga.coverUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = manga.getCoverUrl(repository.settingsManager.apiBaseUrl) ?: manga.coverUrl,
-                        contentDescription = manga.displayTitle,
+                        contentDescription = manga.getDisplayTitle(currentAppLang),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxSize()
@@ -753,7 +757,7 @@ fun MangaGridCard(
                     .padding(8.dp)
             ) {
                 Text(
-                    text = manga.displayTitle,
+                    text = manga.getDisplayTitle(currentAppLang),
                     style = MaterialTheme.typography.titleMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
                     minLines = 2,
                     maxLines = 2,

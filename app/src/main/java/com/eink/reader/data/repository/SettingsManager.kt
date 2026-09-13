@@ -182,6 +182,15 @@ class SettingsManager(context: Context) {
         get() = prefs.getString("default_reader_color_mode", "KALEIDO_3") ?: "KALEIDO_3"
         set(value) = prefs.edit().putString("default_reader_color_mode", value).apply()
 
+    // 8. Cài đặt Ngôn ngữ
+    var appLanguage: String
+        get() = prefs.getString("app_language", "vi") ?: "vi"
+        set(value) = prefs.edit().putString("app_language", value).apply()
+
+    var preferredChapterLanguage: String
+        get() = prefs.getString("preferred_chapter_language", "vi") ?: "vi"
+        set(value) = prefs.edit().putString("preferred_chapter_language", value).apply()
+
     fun logout() {
         prefs.edit()
             .remove("session_token")

@@ -88,6 +88,13 @@ fun UpdateDialog(
         }
     }
 
+    LaunchedEffect(Unit) {
+        // Tự động tải bản cập nhật luôn mà không cần chờ người dùng bấm
+        if (downloadState == UpdateDownloadState.IDLE && !releaseInfo.apkDownloadUrl.isNullOrBlank()) {
+            startDownload()
+        }
+    }
+
     AlertDialog(
         onDismissRequest = {
             if (downloadState == UpdateDownloadState.DOWNLOADING) {

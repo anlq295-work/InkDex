@@ -41,6 +41,7 @@ import kotlinx.coroutines.launch
 enum class SettingsSubScreen(val title: String) {
     MENU("CÀI ĐẶT HỆ THỐNG"),
     PERSONAL("CÀI ĐẶT CÁ NHÂN"),
+    LANGUAGE("NGÔN NGỮ & HIỂN THỊ"),
     READER("CÀI ĐẶT ĐỌC & LƯU TRỮ"),
     EINK("TỐI ƯU HÓA MÀN HÌNH E-INK"),
     CREDIT("CREDIT & GIỚI THIỆU")
@@ -102,6 +103,11 @@ fun SettingsScreen(
     var crErotica by remember { mutableStateOf(settings.contentRatingErotica) }
     var crPornographic by remember { mutableStateOf(settings.contentRatingPornographic) }
     var themeMode by remember { mutableStateOf(settings.appThemeMode) }
+
+    // State cho Language
+    val strings = com.eink.reader.util.LocalAppStrings.current
+    var currentAppLanguage by remember { mutableStateOf(settings.appLanguage) }
+    var currentPrefLanguage by remember { mutableStateOf(settings.preferredChapterLanguage) }
 
     // State cho Reader
     var readingDirection by remember { mutableStateOf(settings.readingDirection) }
@@ -204,6 +210,14 @@ fun SettingsScreen(
                             subtitle = "Tài khoản MangaDex • Phân loại nội dung • Khóa PIN • DNS & Proxy Bypass",
                             icon = Icons.Default.AccountCircle,
                             onClick = { currentSubScreen = SettingsSubScreen.PERSONAL }
+                        )
+
+                        // Ngôn ngữ & Hiển thị
+                        SettingsMenuItem(
+                            title = strings.languageSettings,
+                            subtitle = "${strings.appLanguage}: ${com.eink.reader.util.AppLanguage.fromCode(currentAppLanguage).displayName} • ${strings.preferredReadingLanguage}: ${com.eink.reader.util.AppLanguage.fromCode(currentPrefLanguage).displayName}",
+                            icon = Icons.Default.Language,
+                            onClick = { currentSubScreen = SettingsSubScreen.LANGUAGE }
                         )
 
                         // 2. Cài đặt đọc
@@ -1128,6 +1142,137 @@ fun SettingsScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(2.dp)
                                 )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                }
+
+                // ==========================================
+                // MỤC: NGÔN NGỮ & HIỂN THỊ
+                // ==========================================
+                SettingsSubScreen.LANGUAGE -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        // 1. NGÔN NGỮ GIAO DIỆN ỨNG DỤNG
+                        Text(
+                            text = "1. ${strings.appLanguage.uppercase()}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = EInkBlack)
+                        )
+
+                        Card(
+                            shape = RoundedCornerShape(4.dp),
+                            colors = CardDefaults.cardColors(containerColor = EInkWhite),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EInkBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                com.eink.reader.util.AppLanguage.entries.forEach { lang ->
+                                    val isSelected = currentAppLanguage == lang.code
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                currentAppLanguage = lang.code
+                                                settings.appLanguage = lang.code
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = "${lang.displayName} (${lang.nativeName})",
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                fontSize = 14.sp,
+                                                color = EInkBlack
+                                            )
+                                            Text(
+                                                text = "Code: ${lang.code}",
+                                                fontSize = 11.sp,
+                                                color = EInkDarkGray
+                                            )
+                                        }
+                                        RadioButton(
+                                            selected = isSelected,
+                                            onClick = {
+                                                currentAppLanguage = lang.code
+                                                settings.appLanguage = lang.code
+                                            },
+                                            colors = RadioButtonDefaults.colors(
+                                                selectedColor = EInkBlack,
+                                                unselectedColor = EInkDarkGray
+                                            )
+                                        )
+                                    }
+                                    if (lang != com.eink.reader.util.AppLanguage.entries.last()) {
+                                        HorizontalDivider(color = EInkBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+                                    }
+                                }
+                            }
+                        }
+
+                        // 2. NGÔN NGỮ ĐỌC TRUYỆN MẶC ĐỊNH
+                        Text(
+                            text = "2. ${strings.preferredReadingLanguage.uppercase()}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = EInkBlack)
+                        )
+
+                        Card(
+                            shape = RoundedCornerShape(4.dp),
+                            colors = CardDefaults.cardColors(containerColor = EInkWhite),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EInkBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                com.eink.reader.util.AppLanguage.entries.forEach { lang ->
+                                    val isSelected = currentPrefLanguage == lang.code
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                currentPrefLanguage = lang.code
+                                                settings.preferredChapterLanguage = lang.code
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = "${lang.displayName} (${lang.nativeName})",
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                fontSize = 14.sp,
+                                                color = EInkBlack
+                                            )
+                                            Text(
+                                                text = strings.preferredReadingLanguageSubtitle,
+                                                fontSize = 11.sp,
+                                                color = EInkDarkGray
+                                            )
+                                        }
+                                        RadioButton(
+                                            selected = isSelected,
+                                            onClick = {
+                                                currentPrefLanguage = lang.code
+                                                settings.preferredChapterLanguage = lang.code
+                                            },
+                                            colors = RadioButtonDefaults.colors(
+                                                selectedColor = EInkBlack,
+                                                unselectedColor = EInkDarkGray
+                                            )
+                                        )
+                                    }
+                                    if (lang != com.eink.reader.util.AppLanguage.entries.last()) {
+                                        HorizontalDivider(color = EInkBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+                                    }
+                                }
                             }
                         }
 

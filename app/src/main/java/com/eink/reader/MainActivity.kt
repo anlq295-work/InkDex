@@ -67,6 +67,7 @@ class MainActivity : ComponentActivity() {
             var disableOverscroll by remember { mutableStateOf(repository.settingsManager.eInkDisableOverscroll) }
             var appThemeMode by remember { mutableStateOf(repository.settingsManager.appThemeMode) }
             var isPornographic by remember { mutableStateOf(repository.settingsManager.contentRatingPornographic) }
+            var appLanguage by remember { mutableStateOf(repository.settingsManager.appLanguage) }
 
             DisposableEffect(Unit) {
                 val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -80,12 +81,17 @@ class MainActivity : ComponentActivity() {
                         isPornographic = repository.settingsManager.contentRatingPornographic
                         appThemeMode = repository.settingsManager.appThemeMode
                     }
+                    if (key == "app_language") {
+                        appLanguage = repository.settingsManager.appLanguage
+                    }
                 }
                 repository.settingsManager.prefsInstance.registerOnSharedPreferenceChangeListener(listener)
                 onDispose {
                     repository.settingsManager.prefsInstance.unregisterOnSharedPreferenceChangeListener(listener)
                 }
             }
+
+            val appStrings = remember(appLanguage) { com.eink.reader.util.I18n.getStrings(appLanguage) }
 
             val systemInDark = androidx.compose.foundation.isSystemInDarkTheme()
             val isAppDark = when {
@@ -95,7 +101,8 @@ class MainActivity : ComponentActivity() {
                 else -> false
             }
 
-            EInkReaderTheme(darkTheme = isAppDark, disableOverscroll = disableOverscroll) {
+            CompositionLocalProvider(com.eink.reader.util.LocalAppStrings provides appStrings) {
+                EInkReaderTheme(darkTheme = isAppDark, disableOverscroll = disableOverscroll) {
                 var isAppUnlocked by rememberSaveable { mutableStateOf(false) }
                 val isAppLockActive = repository.settingsManager.isAppLockEnabled &&
                         repository.settingsManager.appLockPin.isNotBlank() &&
@@ -169,12 +176,12 @@ class MainActivity : ComponentActivity() {
                                         icon = {
                                             Icon(
                                                 Icons.Default.Explore,
-                                                contentDescription = "Khám phá"
+                                                contentDescription = appStrings.navExplore
                                             )
                                         },
                                         label = {
                                             Text(
-                                                "Khám phá",
+                                                appStrings.navExplore,
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 11.sp
                                             )
@@ -188,54 +195,54 @@ class MainActivity : ComponentActivity() {
                                         )
                                     )
 
-                                NavigationBarItem(
-                                    selected = currentRoute == "library",
-                                    onClick = {
-                                        navController.navigate("library") {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
+                                    NavigationBarItem(
+                                        selected = currentRoute == "library",
+                                        onClick = {
+                                            navController.navigate("library") {
+                                                popUpTo(navController.graph.findStartDestination().id) {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
                                             }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    },
-                                    icon = { Icon(Icons.Default.LocalLibrary, contentDescription = "Thư viện") },
-                                    label = { Text("Thư viện", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = EInkBlack,
-                                        selectedTextColor = EInkBlack,
-                                        unselectedIconColor = EInkDarkGray,
-                                        unselectedTextColor = EInkDarkGray,
-                                        indicatorColor = EInkSurface
+                                        },
+                                        icon = { Icon(Icons.Default.LocalLibrary, contentDescription = appStrings.navLibrary) },
+                                        label = { Text(appStrings.navLibrary, fontWeight = FontWeight.Bold, fontSize = 11.sp) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = EInkBlack,
+                                            selectedTextColor = EInkBlack,
+                                            unselectedIconColor = EInkDarkGray,
+                                            unselectedTextColor = EInkDarkGray,
+                                            indicatorColor = EInkSurface
+                                        )
                                     )
-                                )
 
-                                NavigationBarItem(
-                                    selected = currentRoute == "settings",
-                                    onClick = {
-                                        navController.navigate("settings") {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
+                                    NavigationBarItem(
+                                        selected = currentRoute == "settings",
+                                        onClick = {
+                                            navController.navigate("settings") {
+                                                popUpTo(navController.graph.findStartDestination().id) {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
                                             }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    },
-                                    icon = { Icon(Icons.Default.Settings, contentDescription = "Cài đặt") },
-                                    label = { Text("Cài đặt", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = EInkBlack,
-                                        selectedTextColor = EInkBlack,
-                                        unselectedIconColor = EInkDarkGray,
-                                        unselectedTextColor = EInkDarkGray,
-                                        indicatorColor = EInkSurface
+                                        },
+                                        icon = { Icon(Icons.Default.Settings, contentDescription = appStrings.navSettings) },
+                                        label = { Text(appStrings.navSettings, fontWeight = FontWeight.Bold, fontSize = 11.sp) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = EInkBlack,
+                                            selectedTextColor = EInkBlack,
+                                            unselectedIconColor = EInkDarkGray,
+                                            unselectedTextColor = EInkDarkGray,
+                                            indicatorColor = EInkSurface
+                                        )
                                     )
-                                )
+                                }
                             }
-                        }
-                    },
-                    containerColor = EInkWhite
-                ) { innerPadding ->
+                        },
+                        containerColor = EInkWhite
+                    ) { innerPadding ->
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -456,6 +463,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
 }
 }
 

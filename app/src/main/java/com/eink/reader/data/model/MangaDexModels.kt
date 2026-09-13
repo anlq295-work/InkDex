@@ -55,52 +55,65 @@ data class MangaItem(
     val attributes: MangaAttributes = MangaAttributes(),
     val relationships: List<Relationship> = emptyList()
 ) {
-    val displayTitle: String
-        get() {
-            // 1. Tiêu đề ưu tiên: Tiếng Việt -> Tiếng Anh -> Phiên âm Nhật (ja-ro)
-            val viTitle = attributes.title["vi"]?.takeIf { it.isNotBlank() }
-                ?: attributes.altTitles.firstNotNullOfOrNull { it["vi"]?.takeIf { s -> s.isNotBlank() } }
-            if (!viTitle.isNullOrBlank()) return viTitle
+    fun getDisplayTitle(preferredLang: String = "vi"): String {
+        // 1. Tiêu đề theo ngôn ngữ ưu tiên người dùng
+        val prefTitle = attributes.title[preferredLang]?.takeIf { it.isNotBlank() }
+            ?: attributes.altTitles.firstNotNullOfOrNull { it[preferredLang]?.takeIf { s -> s.isNotBlank() } }
+        if (!prefTitle.isNullOrBlank()) return prefTitle
 
-            val enTitle = attributes.title["en"]?.takeIf { it.isNotBlank() }
-                ?: attributes.altTitles.firstNotNullOfOrNull { it["en"]?.takeIf { s -> s.isNotBlank() } }
-            if (!enTitle.isNullOrBlank()) return enTitle
+        // 2. Tiếng Anh (nếu ngôn ngữ chọn không phải en)
+        val enTitle = attributes.title["en"]?.takeIf { it.isNotBlank() }
+            ?: attributes.altTitles.firstNotNullOfOrNull { it["en"]?.takeIf { s -> s.isNotBlank() } }
+        if (!enTitle.isNullOrBlank()) return enTitle
 
-            val jaRoTitle = attributes.title["ja-ro"]?.takeIf { it.isNotBlank() }
-                ?: attributes.altTitles.firstNotNullOfOrNull { it["ja-ro"]?.takeIf { s -> s.isNotBlank() } }
-            if (!jaRoTitle.isNullOrBlank()) return jaRoTitle
+        // 3. Tiếng Việt (nếu ngôn ngữ chọn không phải vi)
+        val viTitle = attributes.title["vi"]?.takeIf { it.isNotBlank() }
+            ?: attributes.altTitles.firstNotNullOfOrNull { it["vi"]?.takeIf { s -> s.isNotBlank() } }
+        if (!viTitle.isNullOrBlank()) return viTitle
 
-            // 2. Tiêu đề theo ngôn ngữ gốc của truyện (ví dụ: "ja", "ko", "zh", "fr", "es", "ru"...)
-            val origLang = attributes.originalLanguage
-            if (!origLang.isNullOrBlank()) {
-                val origTitle = attributes.title[origLang]?.takeIf { it.isNotBlank() }
-                    ?: attributes.altTitles.firstNotNullOfOrNull { it[origLang]?.takeIf { s -> s.isNotBlank() } }
-                if (!origTitle.isNullOrBlank()) return origTitle
-            }
+        // 4. Phiên âm Nhật (ja-ro)
+        val jaRoTitle = attributes.title["ja-ro"]?.takeIf { it.isNotBlank() }
+            ?: attributes.altTitles.firstNotNullOfOrNull { it["ja-ro"]?.takeIf { s -> s.isNotBlank() } }
+        if (!jaRoTitle.isNullOrBlank()) return jaRoTitle
 
-            // 3. Tiêu đề đầu tiên bất kỳ trong map title chính
-            val firstTitle = attributes.title.values.firstOrNull { it.isNotBlank() }
-            if (!firstTitle.isNullOrBlank()) return firstTitle
-
-            // 4. Tiêu đề đầu tiên bất kỳ trong altTitles
-            val firstAlt = attributes.altTitles.firstNotNullOfOrNull { alt ->
-                alt.values.firstOrNull { it.isNotBlank() }
-            }
-            if (!firstAlt.isNullOrBlank()) return firstAlt
-
-            return "Untitled"
+        // 5. Tiêu đề theo ngôn ngữ gốc của truyện (ví dụ: "ja", "ko", "zh", "fr", "es", "ru"...)
+        val origLang = attributes.originalLanguage
+        if (!origLang.isNullOrBlank()) {
+            val origTitle = attributes.title[origLang]?.takeIf { it.isNotBlank() }
+                ?: attributes.altTitles.firstNotNullOfOrNull { it[origLang]?.takeIf { s -> s.isNotBlank() } }
+            if (!origTitle.isNullOrBlank()) return origTitle
         }
+
+        // 6. Tiêu đề đầu tiên bất kỳ trong map title chính
+        val firstTitle = attributes.title.values.firstOrNull { it.isNotBlank() }
+        if (!firstTitle.isNullOrBlank()) return firstTitle
+
+        // 7. Tiêu đề đầu tiên bất kỳ trong altTitles
+        val firstAlt = attributes.altTitles.firstNotNullOfOrNull { alt ->
+            alt.values.firstOrNull { it.isNotBlank() }
+        }
+        if (!firstAlt.isNullOrBlank()) return firstAlt
+
+        return "Untitled"
+    }
+
+    val displayTitle: String
+        get() = getDisplayTitle("vi")
+
+    fun getDisplayDescription(preferredLang: String = "vi"): String {
+        val pref = attributes.description[preferredLang]?.takeIf { it.isNotBlank() }
+        if (!pref.isNullOrBlank()) return pref
+        val en = attributes.description["en"]?.takeIf { it.isNotBlank() }
+        if (!en.isNullOrBlank()) return en
+        val vi = attributes.description["vi"]?.takeIf { it.isNotBlank() }
+        if (!vi.isNullOrBlank()) return vi
+        val orig = attributes.originalLanguage?.let { attributes.description[it]?.takeIf { s -> s.isNotBlank() } }
+        if (!orig.isNullOrBlank()) return orig
+        return attributes.description.values.firstOrNull { it.isNotBlank() } ?: ""
+    }
 
     val displayDescription: String
-        get() {
-            val vi = attributes.description["vi"]?.takeIf { it.isNotBlank() }
-            if (!vi.isNullOrBlank()) return vi
-            val en = attributes.description["en"]?.takeIf { it.isNotBlank() }
-            if (!en.isNullOrBlank()) return en
-            val orig = attributes.originalLanguage?.let { attributes.description[it]?.takeIf { s -> s.isNotBlank() } }
-            if (!orig.isNullOrBlank()) return orig
-            return attributes.description.values.firstOrNull { it.isNotBlank() } ?: ""
-        }
+        get() = getDisplayDescription("vi")
 
     val coverFileName: String?
         get() = relationships.firstOrNull { it.type == "cover_art" && !it.attributes?.fileName.isNullOrBlank() }?.attributes?.fileName

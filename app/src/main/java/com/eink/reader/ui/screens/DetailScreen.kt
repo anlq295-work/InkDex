@@ -3,6 +3,7 @@ package com.eink.reader.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.SwapVert
+import com.eink.reader.util.LocalAppStrings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,7 +56,9 @@ fun DetailScreen(
     var chapters by remember { mutableStateOf<List<ChapterItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var selectedLanguage by remember { mutableStateOf("vi") }
+    val strings = LocalAppStrings.current
+    val prefLang = repository.settingsManager.preferredChapterLanguage
+    var selectedLanguage by remember { mutableStateOf(prefLang) }
     var isAscending by remember { mutableStateOf(true) }
 
     // Reading Record & Progress State
@@ -103,6 +107,7 @@ fun DetailScreen(
                 val available = details.attributes.availableTranslatedLanguages
                 if (available.isNotEmpty() && !available.contains(selectedLanguage)) {
                     targetLang = when {
+                        available.contains(prefLang) -> prefLang
                         available.contains("vi") -> "vi"
                         available.contains("en") -> "en"
                         else -> available.first()
@@ -325,7 +330,7 @@ fun DetailScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "[ ĐANG TẢI DANH SÁCH CHƯƠNG... ]",
+                                    text = "[ ${strings.loading.uppercase()}... ]",
                                     style = MaterialTheme.typography.bodyMedium,
                                     modifier = Modifier.border(1.dp, EInkBorder, RoundedCornerShape(4.dp)).padding(12.dp)
                                 )
@@ -340,7 +345,7 @@ fun DetailScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "Lỗi tải chương: $errorMessage",
+                                    text = "${strings.error}: $errorMessage",
                                     color = Color.Red,
                                     style = MaterialTheme.typography.bodyLarge
                                 )
@@ -355,7 +360,7 @@ fun DetailScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "Chưa có chương nào với ngôn ngữ đã chọn.",
+                                    text = strings.noChapters,
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                             }
@@ -521,6 +526,7 @@ fun MangaInfoContent(
     firstChapter: ChapterItem? = null,
     onReadClick: (String, String, Int) -> Unit = { _, _, _ -> }
 ) {
+    val strings = LocalAppStrings.current
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -536,7 +542,7 @@ fun MangaInfoContent(
                 if (!manga.coverUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = manga.getCoverUrl(repository.settingsManager.apiBaseUrl) ?: manga.coverUrl,
-                        contentDescription = manga.displayTitle,
+                        contentDescription = manga.getDisplayTitle(strings.langCode),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxSize()
@@ -550,18 +556,18 @@ fun MangaInfoContent(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = manga.displayTitle,
+                    text = manga.getDisplayTitle(strings.langCode),
                     style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp)
                 )
                 manga.authorName?.let {
                     Text(
-                        text = "Tác giả: $it",
+                        text = "${strings.author}: $it",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
                 manga.attributes.status?.let {
                     Text(
-                        text = "Trạng thái: ${it.uppercase()}",
+                        text = "${strings.status}: ${it.uppercase()}",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -592,7 +598,7 @@ fun MangaInfoContent(
                             modifier = Modifier.height(30.dp)
                         ) {
                             Text(
-                                text = if (isFollowed) "✓ Đang theo dõi" else "+ Theo dõi",
+                                text = if (isFollowed) "✓ ${strings.followed}" else "+ ${strings.follow}",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isFollowed) EInkWhite else EInkBlack
@@ -640,9 +646,9 @@ fun MangaInfoContent(
             ) {
                 Icon(Icons.Default.MenuBook, contentDescription = null, tint = EInkWhite, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                val pageInfo = if (readingRecord.totalPages > 0) " (Trang ${readingRecord.lastReadPage}/${readingRecord.totalPages})" else " (Trang ${readingRecord.lastReadPage})"
+                val pageInfo = if (readingRecord.totalPages > 0) " (${strings.pageIndicator} ${readingRecord.lastReadPage}/${readingRecord.totalPages})" else " (${strings.pageIndicator} ${readingRecord.lastReadPage})"
                 Text(
-                    text = "ĐỌC TIẾP: ${readingRecord.lastChapterTitle}$pageInfo",
+                    text = "${strings.continueReading}: ${readingRecord.lastChapterTitle}$pageInfo",
                     color = EInkWhite,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
@@ -663,7 +669,7 @@ fun MangaInfoContent(
                 Icon(Icons.Default.MenuBook, contentDescription = null, tint = EInkWhite, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "BẮT ĐẦU ĐỌC (${firstChapter.displayTitle})",
+                    text = "${strings.startReading} (${firstChapter.displayTitle})",
                     color = EInkWhite,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
@@ -675,14 +681,15 @@ fun MangaInfoContent(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        if (manga.displayDescription.isNotBlank()) {
+        val description = manga.getDisplayDescription(strings.langCode)
+        if (description.isNotBlank()) {
             Text(
                 text = "NỘI DUNG TÓM TẮT",
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = manga.displayDescription,
+                text = description,
                 style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 18.sp),
                 modifier = Modifier
                     .border(1.dp, EInkBorder, RoundedCornerShape(4.dp))
@@ -701,7 +708,16 @@ fun ChapterHeaderFilter(
     onToggleSort: () -> Unit
 ) {
     var showLanguagePicker by remember { mutableStateOf(false) }
-    val commonLangs = listOf("vi" to "Tiếng Việt", "en" to "English", "all" to "Tất cả")
+    val strings = LocalAppStrings.current
+    val commonLangs = listOf(
+        "vi" to "Tiếng Việt",
+        "en" to "English",
+        "fr" to "Français",
+        "es" to "Español",
+        "zh" to "中文",
+        "ko" to "한국어",
+        "all" to strings.langAll
+    )
     val isCustomLang = commonLangs.none { it.first == selectedLanguage }
 
     Column {
@@ -711,7 +727,9 @@ fun ChapterHeaderFilter(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -936,6 +954,7 @@ fun ChapterListContent(
     onChapterClick: (String, String, Int) -> Unit,
     onDownloadClick: (ChapterItem) -> Unit
 ) {
+    val strings = LocalAppStrings.current
     if (isLoading) {
         Box(
             modifier = Modifier
@@ -944,7 +963,7 @@ fun ChapterListContent(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "[ ĐANG TẢI DANH SÁCH CHƯƠNG... ]",
+                text = "[ ${strings.loading.uppercase()}... ]",
                 style = MaterialTheme.typography.bodyLarge
             )
         }
@@ -956,7 +975,7 @@ fun ChapterListContent(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Chưa có chương nào với ngôn ngữ đã chọn.",
+                text = strings.noChapters,
                 style = MaterialTheme.typography.bodyMedium
             )
         }
