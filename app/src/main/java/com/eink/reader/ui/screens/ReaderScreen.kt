@@ -627,11 +627,19 @@ fun ReaderScreen(
         )
     }
 
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(EInkWhite)
-    ) {
+    val isPornographic = remember(mangaId) {
+        if (!mangaId.isNullOrBlank()) {
+            repository.tagCacheManager.isPornographic(mangaId)
+        } else false
+    }
+    val isDarkEffective = isPornographic || com.eink.reader.ui.theme.LocalEInkColors.current.isDark
+
+    com.eink.reader.ui.theme.EInkReaderTheme(darkTheme = isDarkEffective) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(EInkWhite)
+        ) {
         val isLandscape = maxWidth > maxHeight
         val density = androidx.compose.ui.platform.LocalDensity.current
         val viewportHeightPx = with(density) { maxHeight.toPx() }
@@ -1478,5 +1486,6 @@ fun ReaderScreen(
             shape = RoundedCornerShape(8.dp),
             modifier = Modifier.border(1.dp, EInkBlack, RoundedCornerShape(8.dp))
         )
+    }
     }
 }

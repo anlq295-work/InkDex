@@ -137,7 +137,18 @@ fun DetailScreen(
     val localView = androidx.compose.ui.platform.LocalView.current
     val localContext = androidx.compose.ui.platform.LocalContext.current
 
-    Scaffold(
+    val isPornographic = remember(manga, mangaId) {
+        val rating = manga?.attributes?.contentRating?.lowercase()?.trim()
+        val tags = manga?.attributes?.tags?.mapNotNull { it.attributes.name["en"] ?: it.attributes.name.values.firstOrNull() } ?: emptyList()
+        rating == "pornographic" ||
+        tags.any { it.equals("pornographic", ignoreCase = true) || it.equals("hentai", ignoreCase = true) } ||
+        repository.tagCacheManager.isPornographic(mangaId, rating, tags)
+    }
+
+    val isDarkEffective = isPornographic || com.eink.reader.ui.theme.LocalEInkColors.current.isDark
+
+    com.eink.reader.ui.theme.EInkReaderTheme(darkTheme = isDarkEffective) {
+        Scaffold(
         topBar = {
             TopAppBar(
                 title = {
@@ -481,6 +492,7 @@ fun DetailScreen(
             shape = RoundedCornerShape(4.dp),
             modifier = Modifier.border(2.dp, EInkBlack, RoundedCornerShape(4.dp))
         )
+    }
     }
 }
 

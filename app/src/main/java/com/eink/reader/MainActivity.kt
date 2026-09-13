@@ -63,10 +63,15 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var disableOverscroll by remember { mutableStateOf(repository.settingsManager.eInkDisableOverscroll) }
+            var appThemeMode by remember { mutableStateOf(repository.settingsManager.appThemeMode) }
+
             DisposableEffect(Unit) {
                 val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
                     if (key == "eink_disable_overscroll" || key == "eink_support_enabled") {
                         disableOverscroll = repository.settingsManager.eInkDisableOverscroll
+                    }
+                    if (key == "app_theme_mode") {
+                        appThemeMode = repository.settingsManager.appThemeMode
                     }
                 }
                 repository.settingsManager.prefsInstance.registerOnSharedPreferenceChangeListener(listener)
@@ -75,7 +80,14 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            EInkReaderTheme(disableOverscroll = disableOverscroll) {
+            val systemInDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val isAppDark = when (appThemeMode) {
+                "DARK" -> true
+                "LIGHT" -> false
+                else -> systemInDark
+            }
+
+            EInkReaderTheme(darkTheme = isAppDark, disableOverscroll = disableOverscroll) {
                 var isAppUnlocked by rememberSaveable { mutableStateOf(false) }
                 val isAppLockActive = repository.settingsManager.isAppLockEnabled &&
                         repository.settingsManager.appLockPin.isNotBlank() &&

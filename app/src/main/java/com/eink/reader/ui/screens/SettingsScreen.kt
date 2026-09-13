@@ -96,11 +96,12 @@ fun SettingsScreen(
         pcSecretInput = settings.personalClientSecret ?: ""
     }
 
-    // State cho Content Ratings
+    // State cho Content Ratings & Theme
     var crSafe by remember { mutableStateOf(settings.contentRatingSafe) }
     var crSuggestive by remember { mutableStateOf(settings.contentRatingSuggestive) }
     var crErotica by remember { mutableStateOf(settings.contentRatingErotica) }
     var crPornographic by remember { mutableStateOf(settings.contentRatingPornographic) }
+    var themeMode by remember { mutableStateOf(settings.appThemeMode) }
 
     // State cho Reader
     var readingDirection by remember { mutableStateOf(settings.readingDirection) }
@@ -755,6 +756,45 @@ fun SettingsScreen(
                                             modifier = Modifier.height(34.dp)
                                         ) {
                                             Text(if (isCheckingLogin) "Đang kiểm tra..." else "ĐĂNG NHẬP TOKEN", color = EInkWhite, fontSize = 11.sp)
+                                        }
+                                    }
+                                }
+
+                                HorizontalDivider(color = EInkBorder)
+
+                                // Chế độ giao diện hiển thị (Theme)
+                                Text("Chế độ giao diện (Theme):", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Đảo màu tương phản cao cho màn hình E-Ink. Mặc định tự động dùng nền tối (Dark) cho truyện có gắn thẻ Pornographic.", fontSize = 11.sp, color = EInkDarkGray)
+
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    val currentTheme = themeMode
+                                    val themeOptions = listOf(
+                                        "LIGHT" to "Sáng",
+                                        "DARK" to "Tối (Invert)",
+                                        "SYSTEM" to "Theo máy"
+                                    )
+                                    themeOptions.forEach { (modeKey, modeTitle) ->
+                                        val isSelected = currentTheme == modeKey
+                                        OutlinedButton(
+                                            onClick = {
+                                                themeMode = modeKey
+                                                settings.appThemeMode = modeKey
+                                            },
+                                            shape = RoundedCornerShape(2.dp),
+                                            border = androidx.compose.foundation.BorderStroke(if (isSelected) 2.dp else 1.dp, EInkBlack),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                containerColor = if (isSelected) EInkBlack else EInkWhite,
+                                                contentColor = if (isSelected) EInkWhite else EInkBlack
+                                            ),
+                                            modifier = Modifier.weight(1f).height(32.dp),
+                                            contentPadding = PaddingValues(0.dp)
+                                        ) {
+                                            Text(
+                                                text = modeTitle,
+                                                color = if (isSelected) EInkWhite else EInkBlack,
+                                                fontSize = 11.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            )
                                         }
                                     }
                                 }
