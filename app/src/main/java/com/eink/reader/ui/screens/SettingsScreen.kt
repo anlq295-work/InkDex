@@ -218,7 +218,7 @@ fun SettingsScreen(
                         // 4. Credit & Giới thiệu
                         SettingsMenuItem(
                             title = "Credit & Giới thiệu",
-                            subtitle = "InkDex v1.2 • Bigme B751C S • MangaDex API",
+                            subtitle = "InkDex v1.3 • Bigme B751C S • MangaDex API",
                             icon = Icons.Default.Info,
                             onClick = { currentSubScreen = SettingsSubScreen.CREDIT }
                         )
@@ -280,14 +280,14 @@ fun SettingsScreen(
                                             coroutineScope.launch {
                                                 isCheckingUpdate = true
                                                 updateCheckResult = "Đang kiểm tra..."
-                                                val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.2")
+                                                val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.3")
                                                 res.onSuccess { info ->
                                                     isCheckingUpdate = false
                                                     if (info.isNewer) {
                                                         availableUpdateInfo = info
                                                         updateCheckResult = "🎉 Có bản mới: ${info.tagName}!"
                                                     } else {
-                                                        updateCheckResult = "✓ Đang ở bản mới nhất v1.2"
+                                                        updateCheckResult = "✓ Đang ở bản mới nhất v1.3"
                                                     }
                                                 }.onFailure { err ->
                                                     isCheckingUpdate = false
@@ -318,7 +318,7 @@ fun SettingsScreen(
 
                         // Footer phiên bản
                         Text(
-                            text = "InkDex Manga Reader v1.2 • Phiên bản tối ưu E-Ink & Bigme Kaleido 3",
+                            text = "InkDex Manga Reader v1.3 • Phiên bản tối ưu E-Ink & Bigme Kaleido 3",
                             fontSize = 11.sp,
                             color = EInkDarkGray,
                             textAlign = TextAlign.Center,
@@ -966,8 +966,11 @@ fun SettingsScreen(
                         ) {
                             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text("Chế độ đọc mặc định:", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     val isRtl = readingDirection == "RTL"
+                                    val isLtr = readingDirection == "LTR"
+                                    val isVertical = readingDirection == "VERTICAL"
+
                                     OutlinedButton(
                                         onClick = {
                                             readingDirection = "RTL"
@@ -982,7 +985,7 @@ fun SettingsScreen(
                                         modifier = Modifier.weight(1f).height(36.dp),
                                         contentPadding = PaddingValues(0.dp)
                                     ) {
-                                        Text("Phải sang Trái (Manga)", color = if (isRtl) EInkWhite else EInkBlack, fontSize = 11.sp)
+                                        Text("Phải sang Trái (Manga)", color = if (isRtl) EInkWhite else EInkBlack, fontSize = 10.sp, maxLines = 1)
                                     }
 
                                     OutlinedButton(
@@ -991,15 +994,32 @@ fun SettingsScreen(
                                             settings.readingDirection = "LTR"
                                         },
                                         shape = RoundedCornerShape(2.dp),
-                                        border = androidx.compose.foundation.BorderStroke(if (!isRtl) 2.dp else 1.dp, EInkBlack),
+                                        border = androidx.compose.foundation.BorderStroke(if (isLtr) 2.dp else 1.dp, EInkBlack),
                                         colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = if (!isRtl) EInkBlack else EInkWhite,
-                                            contentColor = if (!isRtl) EInkWhite else EInkBlack
+                                            containerColor = if (isLtr) EInkBlack else EInkWhite,
+                                            contentColor = if (isLtr) EInkWhite else EInkBlack
                                         ),
                                         modifier = Modifier.weight(1f).height(36.dp),
                                         contentPadding = PaddingValues(0.dp)
                                     ) {
-                                        Text("Trái sang Phải", color = if (!isRtl) EInkWhite else EInkBlack, fontSize = 11.sp)
+                                        Text("Trái sang Phải", color = if (isLtr) EInkWhite else EInkBlack, fontSize = 10.sp, maxLines = 1)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            readingDirection = "VERTICAL"
+                                            settings.readingDirection = "VERTICAL"
+                                        },
+                                        shape = RoundedCornerShape(2.dp),
+                                        border = androidx.compose.foundation.BorderStroke(if (isVertical) 2.dp else 1.dp, EInkBlack),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            containerColor = if (isVertical) EInkBlack else EInkWhite,
+                                            contentColor = if (isVertical) EInkWhite else EInkBlack
+                                        ),
+                                        modifier = Modifier.weight(1f).height(36.dp),
+                                        contentPadding = PaddingValues(0.dp)
+                                    ) {
+                                        Text("Cuộn dọc (Webtoon)", color = if (isVertical) EInkWhite else EInkBlack, fontSize = 10.sp, maxLines = 1)
                                     }
                                 }
 
@@ -1381,7 +1401,7 @@ fun SettingsScreen(
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Card tiêu đề ứng dụng v1.2
+                        // Card tiêu đề ứng dụng v1.3
                         Card(
                             shape = RoundedCornerShape(4.dp),
                             colors = CardDefaults.cardColors(containerColor = EInkWhite),
@@ -1400,7 +1420,7 @@ fun SettingsScreen(
                                     color = EInkBlack
                                 )
                                 Text(
-                                    text = "Phiên bản 1.2 (Build 4) • Tối ưu E-Ink & Cài đặt In-App",
+                                    text = "Phiên bản 1.3 (Build 5) • Webtoon Cuộn Dọc & Đa Ngôn Ngữ",
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp,
                                     color = EInkBlack

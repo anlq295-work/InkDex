@@ -17,6 +17,7 @@ data class ReadingRecord(
     val lastChapterNumber: String? = null,
     val lastReadPage: Int = 1,
     val totalPages: Int = 0,
+    val readingMode: String? = null,
     val updatedAt: Long = System.currentTimeMillis()
 )
 
@@ -81,15 +82,17 @@ class ReadingHistoryManager private constructor(context: Context) {
         val currentList = getAllRecords().toMutableList()
         val existingIndex = currentList.indexOfFirst { it.mangaId == mangaId }
 
+        val existingRecord = currentList.getOrNull(existingIndex)
         val newRecord = ReadingRecord(
             mangaId = mangaId,
             mangaTitle = mangaTitle.ifBlank { "Truyện không tên" },
-            coverUrl = coverUrl ?: currentList.getOrNull(existingIndex)?.coverUrl,
+            coverUrl = coverUrl ?: existingRecord?.coverUrl,
             lastChapterId = chapterId,
             lastChapterTitle = chapterTitle.ifBlank { "Chương đọc" },
-            lastChapterNumber = chapterNumber ?: currentList.getOrNull(existingIndex)?.lastChapterNumber,
+            lastChapterNumber = chapterNumber ?: existingRecord?.lastChapterNumber,
             lastReadPage = page.coerceAtLeast(1),
             totalPages = totalPages.coerceAtLeast(0),
+            readingMode = existingRecord?.readingMode,
             updatedAt = System.currentTimeMillis()
         )
 
@@ -108,6 +111,23 @@ class ReadingHistoryManager private constructor(context: Context) {
 
         // Đánh dấu chương này là đã đọc
         markChapterRead(mangaId, chapterId)
+    }
+
+    /**
+     * Lưu chế độ đọc riêng cho một bộ truyện (RTL, LTR, VERTICAL)
+     */
+    fun saveReadingMode(mangaId: String, mode: String) {
+        if (mangaId.isBlank()) return
+        val currentList = getAllRecords().toMutableList()
+        val existingIndex = currentList.indexOfFirst { it.mangaId == mangaId }
+        if (existingIndex >= 0) {
+            val old = currentList[existingIndex]
+            currentList[existingIndex] = old.copy(readingMode = mode)
+            try {
+                val serialized = json.encodeToString(currentList)
+                prefs.edit().putString(KEY_HISTORY, serialized).apply()
+            } catch (_: Exception) {}
+        }
     }
 
     /**

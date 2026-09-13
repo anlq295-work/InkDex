@@ -28,6 +28,11 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.gestures.animateScrollBy
+import android.graphics.BitmapFactory
 import com.eink.reader.data.model.EInkColorMode
 import com.eink.reader.data.repository.MangaRepository
 import com.eink.reader.ui.theme.*
@@ -82,18 +87,75 @@ fun ReaderScreen(
     val isOfflineCbz = remember(activeChapterId) {
         activeChapterId.endsWith(".cbz", ignoreCase = true) || java.io.File(activeChapterId).exists()
     }
-    val isRtl = remember { repository.settingsManager.readingDirection == "RTL" }
+
+    // Tự động nhận diện chế độ đọc (Reading Direction):
+    // 1. Chế độ riêng từng bộ đã lưu (Per-manga saved preference)
+    // 2. Metadata MangaDex (Tag Long Strip, Web Comic, hoặc tiếng Hàn 'ko')
+    // 3. Cài đặt mặc định của hệ thống
+    val initialReadingMode = remember(mangaId) {
+        val savedMode = if (!mangaId.isNullOrBlank()) {
+            repository.readingHistoryManager.getRecord(mangaId)?.readingMode
+        } else null
+
+        val isWebtoonDetected = if (!mangaId.isNullOrBlank()) {
+            repository.tagCacheManager.isWebtoon(mangaId)
+        } else false
+
+        when {
+            !savedMode.isNullOrBlank() -> savedMode
+            isWebtoonDetected -> "VERTICAL"
+            else -> repository.settingsManager.readingDirection
+        }
+    }
+    var readingDirection by remember(mangaId) { mutableStateOf(initialReadingMode) }
+    val isRtl = readingDirection == "RTL"
+    val webtoonListState = rememberLazyListState()
+
+    // Tự động kiểm tra tỷ lệ khung hình ảnh để phát hiện Webtoon / Manhwa (Fallback cho CBZ hoặc truyện chưa kịp lưu tag)
+    LaunchedEffect(pageUrls, mangaId) {
+        if (pageUrls.isNotEmpty() && readingDirection != "VERTICAL") {
+            val savedMode = if (!mangaId.isNullOrBlank()) {
+                repository.readingHistoryManager.getRecord(mangaId)?.readingMode
+            } else null
+
+            if (savedMode == null) {
+                val firstUrl = pageUrls.first()
+                if (isOfflineCbz) {
+                    try {
+                        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        BitmapFactory.decodeFile(firstUrl, opts)
+                        if (opts.outWidth > 0 && opts.outHeight > 0) {
+                            val ratio = opts.outHeight.toFloat() / opts.outWidth.toFloat()
+                            if (ratio >= 1.6f) {
+                                readingDirection = "VERTICAL"
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+    }
+
+    // Đồng bộ trang hiện tại trong chế độ cuộn dọc Webtoon
+    LaunchedEffect(webtoonListState.firstVisibleItemIndex, readingDirection) {
+        if (readingDirection == "VERTICAL" && pageUrls.isNotEmpty()) {
+            val idx = webtoonListState.firstVisibleItemIndex
+            if (idx in pageUrls.indices) {
+                currentPageIndex = idx
+            }
+        }
+    }
 
     // Quản lý danh sách toàn bộ chương để tự động chuyển chương (Auto Next Chapter)
     var chaptersList by remember { mutableStateOf<List<com.eink.reader.data.model.ChapterItem>>(emptyList()) }
     var siblingCbzFiles by remember { mutableStateOf<List<java.io.File>>(emptyList()) }
     var chapterNoticeMessage by remember { mutableStateOf<String?>(null) }
 
-    // Tải danh sách chương khi đọc online hoặc offline
+    // Tải danh sách chương khi đọc online hoặc offline (lấy mọi ngôn ngữ để hỗ trợ chuyển chương chính xác)
     LaunchedEffect(mangaId, activeChapterId) {
         if (!isOfflineCbz && !mangaId.isNullOrBlank()) {
             if (chaptersList.isEmpty()) {
-                val res = repository.getChapters(mangaId, listOf("vi", "en"))
+                val res = repository.getChapters(mangaId, emptyList())
                 res.onSuccess { list ->
                     // Sắp xếp thứ tự chương tăng dần: Ch.1 -> Ch.2 -> Ch.3...
                     chaptersList = list.sortedWith(
@@ -112,7 +174,7 @@ fun ReaderScreen(
         }
     }
 
-    // Xác định vị trí chương hiện tại và chương kế tiếp / chương trước đó
+    // Xác định vị trí chương hiện tại và chương kế tiếp / chương trước đó (ưu tiên cùng ngôn ngữ)
     val currentOnlineIdx = remember(activeChapterId, chaptersList) {
         if (chaptersList.isEmpty()) -1
         else {
@@ -126,11 +188,25 @@ fun ReaderScreen(
             }
         }
     }
-    val nextOnlineChapter = remember(currentOnlineIdx, chaptersList) {
-        if (currentOnlineIdx in 0 until chaptersList.size - 1) chaptersList[currentOnlineIdx + 1] else null
+    val currentLanguage = remember(currentOnlineIdx, chaptersList) {
+        if (currentOnlineIdx in chaptersList.indices) {
+            chaptersList[currentOnlineIdx].attributes.translatedLanguage
+        } else null
     }
-    val prevOnlineChapter = remember(currentOnlineIdx, chaptersList) {
-        if (currentOnlineIdx > 0) chaptersList[currentOnlineIdx - 1] else null
+    val sameLangChapters = remember(chaptersList, currentLanguage) {
+        if (!currentLanguage.isNullOrBlank()) {
+            val filtered = chaptersList.filter { it.attributes.translatedLanguage.equals(currentLanguage, ignoreCase = true) }
+            if (filtered.isNotEmpty()) filtered else chaptersList
+        } else chaptersList
+    }
+    val currentSameLangIdx = remember(activeChapterId, sameLangChapters) {
+        sameLangChapters.indexOfFirst { it.id == activeChapterId }
+    }
+    val nextOnlineChapter = remember(currentSameLangIdx, sameLangChapters) {
+        if (currentSameLangIdx in 0 until sameLangChapters.size - 1) sameLangChapters[currentSameLangIdx + 1] else null
+    }
+    val prevOnlineChapter = remember(currentSameLangIdx, sameLangChapters) {
+        if (currentSameLangIdx > 0) sameLangChapters[currentSameLangIdx - 1] else null
     }
 
     val currentCbzIdx = remember(activeChapterId, siblingCbzFiles) {
@@ -159,6 +235,9 @@ fun ReaderScreen(
                     pageUrls = files.map { it.absolutePath }
                     currentPageIndex = if (startPage in files.indices) startPage else 0
                     isLoading = false
+                    if (startPage > 0 && readingDirection == "VERTICAL") {
+                        webtoonListState.scrollToItem(startPage)
+                    }
                 } catch (e: Exception) {
                     errorMessage = "Lỗi đọc file CBZ: ${e.localizedMessage}"
                     isLoading = false
@@ -169,6 +248,9 @@ fun ReaderScreen(
                     pageUrls = urls
                     currentPageIndex = if (startPage in urls.indices) startPage else 0
                     isLoading = false
+                    if (startPage > 0 && readingDirection == "VERTICAL") {
+                        webtoonListState.scrollToItem(startPage)
+                    }
                 }.onFailure { err ->
                     errorMessage = err.localizedMessage ?: "Không thể tải trang truyện"
                     isLoading = false
@@ -192,6 +274,7 @@ fun ReaderScreen(
                 currentPageIndex = 0
                 coroutineScope.launch {
                     scrollState.scrollTo(0)
+                    webtoonListState.scrollToItem(0)
                     delay(2500)
                     if (chapterNoticeMessage?.contains(nextFile.nameWithoutExtension) == true) {
                         chapterNoticeMessage = null
@@ -212,6 +295,7 @@ fun ReaderScreen(
                 currentPageIndex = 0
                 coroutineScope.launch {
                     scrollState.scrollTo(0)
+                    webtoonListState.scrollToItem(0)
                     delay(2500)
                     if (chapterNoticeMessage?.contains(nextCh.displayTitle) == true) {
                         chapterNoticeMessage = null
@@ -236,6 +320,7 @@ fun ReaderScreen(
                 currentPageIndex = 0
                 coroutineScope.launch {
                     scrollState.scrollTo(0)
+                    webtoonListState.scrollToItem(0)
                     delay(2500)
                     if (chapterNoticeMessage?.contains(prevFile.nameWithoutExtension) == true) {
                         chapterNoticeMessage = null
@@ -250,6 +335,7 @@ fun ReaderScreen(
                 currentPageIndex = 0
                 coroutineScope.launch {
                     scrollState.scrollTo(0)
+                    webtoonListState.scrollToItem(0)
                     delay(2500)
                     if (chapterNoticeMessage?.contains(prevCh.displayTitle) == true) {
                         chapterNoticeMessage = null
@@ -457,10 +543,34 @@ fun ReaderScreen(
         }
 
         // Bắt sự kiện phím cứng âm lượng hoặc nút điều hướng
-        LaunchedEffect(volumeKeyEventFlow, pageUrls.size, isDualPageMode, scaleMode, isPagedScroll) {
+        LaunchedEffect(volumeKeyEventFlow, pageUrls.size, isDualPageMode, scaleMode, isPagedScroll, readingDirection) {
             volumeKeyEventFlow?.collect { isNext ->
                 if (pageUrls.isNotEmpty()) {
-                    if (isNext) handleNextAction() else handlePrevAction()
+                    if (readingDirection == "VERTICAL") {
+                        if (isNext) {
+                            if (!webtoonListState.canScrollForward) {
+                                if (autoNextChapter && hasNextChapter) {
+                                    goToNextChapter()
+                                } else if (hasNextChapter) {
+                                    chapterNoticeMessage = "Hết chương. Nhấn [ĐỌC TIẾP] để sang $nextChapterTitleString"
+                                }
+                            } else {
+                                coroutineScope.launch {
+                                    webtoonListState.animateScrollBy(jumpStepPx.toFloat())
+                                }
+                            }
+                        } else {
+                            if (!webtoonListState.canScrollBackward) {
+                                if (hasPrevChapter) goToPrevChapter()
+                            } else {
+                                coroutineScope.launch {
+                                    webtoonListState.animateScrollBy(-jumpStepPx.toFloat())
+                                }
+                            }
+                        }
+                    } else {
+                        if (isNext) handleNextAction() else handlePrevAction()
+                    }
                 }
             }
         }
@@ -500,139 +610,252 @@ fun ReaderScreen(
                 }
             }
             pageUrls.isNotEmpty() -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(isRtl, scaleMode, isPagedScroll, jumpStepPx) {
-                            detectTapGestures(
-                                onTap = { offset ->
-                                    val screenWidth = size.width
-                                    val touchX = offset.x
-                                    when {
-                                        touchX < screenWidth * 0.33f -> {
-                                            if (isRtl) handleNextAction() else handlePrevAction()
+                if (readingDirection == "VERTICAL") {
+                    // CHẾ ĐỘ CUỘN DỌC LIÊN TỤC (WEBTOON / MANHWA / MANHUA)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(jumpStepPx) {
+                                detectTapGestures(
+                                    onTap = { offset ->
+                                        val screenHeight = size.height
+                                        val touchY = offset.y
+                                        when {
+                                            touchY < screenHeight * 0.30f -> {
+                                                coroutineScope.launch {
+                                                    webtoonListState.animateScrollBy(-jumpStepPx.toFloat())
+                                                }
+                                            }
+                                            touchY > screenHeight * 0.70f -> {
+                                                coroutineScope.launch {
+                                                    if (!webtoonListState.canScrollForward) {
+                                                        if (autoNextChapter && hasNextChapter) goToNextChapter()
+                                                    } else {
+                                                        webtoonListState.animateScrollBy(jumpStepPx.toFloat())
+                                                    }
+                                                }
+                                            }
+                                            else -> {
+                                                showControls = !showControls
+                                            }
                                         }
-                                        touchX > screenWidth * 0.67f -> {
-                                            if (isRtl) handlePrevAction() else handleNextAction()
-                                        }
-                                        else -> {
-                                            showControls = !showControls
+                                    }
+                                )
+                            }
+                    ) {
+                        LazyColumn(
+                            state = webtoonListState,
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(0.dp)
+                        ) {
+                            itemsIndexed(pageUrls, key = { index, url -> "$url-$index" }) { index, url ->
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(if (isOfflineCbz) java.io.File(url) else url)
+                                        .crossfade(false)
+                                        .build(),
+                                    contentDescription = "Trang ${index + 1}",
+                                    contentScale = ContentScale.FillWidth,
+                                    colorFilter = imageColorFilter,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+
+                            // Thẻ chuyển chương ở cuối danh sách
+                            item {
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 24.dp, horizontal = 16.dp)
+                                        .clickable {
+                                            if (hasNextChapter) goToNextChapter() else onBackClick()
+                                        },
+                                    color = EInkBlack,
+                                    shape = RoundedCornerShape(4.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, EInkWhite)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (hasNextChapter) {
+                                            Text(
+                                                text = "⏭ ĐỌC TIẾP: $nextChapterTitleString ❯",
+                                                color = EInkWhite,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp
+                                            )
+                                        } else {
+                                            Text(
+                                                text = "✓ ĐÃ HẾT BỘ / CHƯƠNG MỚI NHẤT (QUAY LẠI)",
+                                                color = EInkWhite,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp
+                                            )
                                         }
                                     }
                                 }
+                                Spacer(modifier = Modifier.height(70.dp))
+                            }
+                        }
+
+                        // Chỉ số trang tĩnh góc dưới màn hình
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .navigationBarsPadding()
+                                .padding(8.dp)
+                                .background(EInkWhite)
+                                .border(1.dp, EInkBorder, RoundedCornerShape(2.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "${currentPageIndex + 1} / ${pageUrls.size}",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = EInkBlack
+                                )
                             )
                         }
-                ) {
-                    val contentScale = if (scaleMode == PageScaleMode.FIT_WIDTH) ContentScale.FillWidth else ContentScale.Fit
-
-                    if (isDualPageMode) {
-                        // CHẾ ĐỘ TRANG ĐÔI (DUAL PAGE): 2 trang cạnh nhau khi xoay ngang
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Trang 1
-                            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                                AsyncImage(
-                                    model = pageUrls[currentPageIndex],
-                                    contentDescription = "Trang ${currentPageIndex + 1}",
-                                    contentScale = ContentScale.Fit,
-                                    colorFilter = imageColorFilter,
-                                    modifier = Modifier.fillMaxSize()
+                    }
+                } else {
+                    // CHẾ ĐỘ LẬT TRANG MANGA (RTL) / COMIC (LTR)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(isRtl, scaleMode, isPagedScroll, jumpStepPx) {
+                                detectTapGestures(
+                                    onTap = { offset ->
+                                        val screenWidth = size.width
+                                        val touchX = offset.x
+                                        when {
+                                            touchX < screenWidth * 0.33f -> {
+                                                if (isRtl) handleNextAction() else handlePrevAction()
+                                            }
+                                            touchX > screenWidth * 0.67f -> {
+                                                if (isRtl) handlePrevAction() else handleNextAction()
+                                            }
+                                            else -> {
+                                                showControls = !showControls
+                                            }
+                                        }
+                                    }
                                 )
                             }
-                            // Trang 2 (nếu có)
-                            if (currentPageIndex + 1 < pageUrls.size) {
+                    ) {
+                        val contentScale = if (scaleMode == PageScaleMode.FIT_WIDTH) ContentScale.FillWidth else ContentScale.Fit
+
+                        if (isDualPageMode) {
+                            // CHẾ ĐỘ TRANG ĐÔI (DUAL PAGE): 2 trang cạnh nhau khi xoay ngang
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Trang 1
                                 Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                                     AsyncImage(
-                                        model = pageUrls[currentPageIndex + 1],
-                                        contentDescription = "Trang ${currentPageIndex + 2}",
+                                        model = pageUrls[currentPageIndex],
+                                        contentDescription = "Trang ${currentPageIndex + 1}",
                                         contentScale = ContentScale.Fit,
                                         colorFilter = imageColorFilter,
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 }
-                            } else {
-                                Spacer(modifier = Modifier.weight(1f))
-                            }
-                        }
-                    } else {
-                        // CHẾ ĐỘ 1 TRANG (ĐƠN TRANG)
-                        val pageModifier = if (scaleMode == PageScaleMode.FIT_WIDTH) {
-                            Modifier
-                                .fillMaxWidth()
-                                .verticalScroll(scrollState)
-                        } else {
-                            Modifier.fillMaxSize()
-                        }
-
-                        AsyncImage(
-                            model = pageUrls[currentPageIndex],
-                            contentDescription = "Trang ${currentPageIndex + 1}",
-                            contentScale = contentScale,
-                            colorFilter = imageColorFilter,
-                            modifier = pageModifier
-                        )
-                    }
-
-                    // Chỉ số trang tĩnh góc dưới màn hình
-                    val pageText = if (isDualPageMode && currentPageIndex + 1 < pageUrls.size) {
-                        "${currentPageIndex + 1}-${currentPageIndex + 2} / ${pageUrls.size}"
-                    } else {
-                        "${currentPageIndex + 1} / ${pageUrls.size}"
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .navigationBarsPadding()
-                            .padding(8.dp)
-                            .background(EInkWhite)
-                            .border(1.dp, EInkBorder, RoundedCornerShape(2.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = pageText,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = EInkBlack
-                            )
-                        )
-                    }
-
-                    // Nút chuyển chương nổi bật ở trang cuối cùng
-                    if (currentPageIndex >= pageUrls.size - 1 && pageUrls.isNotEmpty()) {
-                        Surface(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .navigationBarsPadding()
-                                .padding(bottom = 44.dp)
-                                .clickable {
-                                    if (hasNextChapter) goToNextChapter() else onBackClick()
-                                },
-                            color = EInkBlack,
-                            shape = RoundedCornerShape(4.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, EInkWhite)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (hasNextChapter) {
-                                    Text(
-                                        text = "⏭ ĐỌC TIẾP: $nextChapterTitleString ❯",
-                                        color = EInkWhite,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
-                                    )
+                                // Trang 2 (nếu có)
+                                if (currentPageIndex + 1 < pageUrls.size) {
+                                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                                        AsyncImage(
+                                            model = pageUrls[currentPageIndex + 1],
+                                            contentDescription = "Trang ${currentPageIndex + 2}",
+                                            contentScale = ContentScale.Fit,
+                                            colorFilter = imageColorFilter,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
                                 } else {
-                                    Text(
-                                        text = "✓ ĐÃ HẾT BỘ / CHƯƠNG MỚI NHẤT (QUAY LẠI)",
-                                        color = EInkWhite,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
-                                    )
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        } else {
+                            // CHẾ ĐỘ 1 TRANG (ĐƠN TRANG)
+                            val pageModifier = if (scaleMode == PageScaleMode.FIT_WIDTH) {
+                                Modifier
+                                    .fillMaxWidth()
+                                    .verticalScroll(scrollState)
+                            } else {
+                                Modifier.fillMaxSize()
+                            }
+
+                            AsyncImage(
+                                model = pageUrls[currentPageIndex],
+                                contentDescription = "Trang ${currentPageIndex + 1}",
+                                contentScale = contentScale,
+                                colorFilter = imageColorFilter,
+                                modifier = pageModifier
+                            )
+                        }
+
+                        // Chỉ số trang tĩnh góc dưới màn hình
+                        val pageText = if (isDualPageMode && currentPageIndex + 1 < pageUrls.size) {
+                            "${currentPageIndex + 1}-${currentPageIndex + 2} / ${pageUrls.size}"
+                        } else {
+                            "${currentPageIndex + 1} / ${pageUrls.size}"
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .navigationBarsPadding()
+                                .padding(8.dp)
+                                .background(EInkWhite)
+                                .border(1.dp, EInkBorder, RoundedCornerShape(2.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = pageText,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = EInkBlack
+                                )
+                            )
+                        }
+
+                        // Nút chuyển chương nổi bật ở trang cuối cùng
+                        if (currentPageIndex >= pageUrls.size - 1 && pageUrls.isNotEmpty()) {
+                            Surface(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .navigationBarsPadding()
+                                    .padding(bottom = 44.dp)
+                                    .clickable {
+                                        if (hasNextChapter) goToNextChapter() else onBackClick()
+                                    },
+                                color = EInkBlack,
+                                shape = RoundedCornerShape(4.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, EInkWhite)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (hasNextChapter) {
+                                        Text(
+                                            text = "⏭ ĐỌC TIẾP: $nextChapterTitleString ❯",
+                                            color = EInkWhite,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "✓ ĐÃ HẾT BỘ / CHƯƠNG MỚI NHẤT (QUAY LẠI)",
+                                            color = EInkWhite,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -777,7 +1000,15 @@ fun ReaderScreen(
                         )
                         Slider(
                             value = currentPageIndex.toFloat(),
-                            onValueChange = { currentPageIndex = it.toInt() },
+                            onValueChange = {
+                                val target = it.toInt()
+                                currentPageIndex = target
+                                if (readingDirection == "VERTICAL") {
+                                    coroutineScope.launch {
+                                        webtoonListState.scrollToItem(target)
+                                    }
+                                }
+                            },
                             valueRange = 0f..(pageUrls.size - 1).toFloat(),
                             steps = if (pageUrls.size > 2) pageUrls.size - 2 else 0,
                             modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
@@ -796,51 +1027,137 @@ fun ReaderScreen(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Dòng 1: Tối ưu tỷ lệ màn hình (Fit Screen vs Fit Width) & (1 Trang vs Trang Đôi)
+                // Dòng chọn chế độ đọc trực tiếp: Manga (RTL) | Comic (LTR) | Webtoon (Dọc)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // Nút Fit Mode
+                    val isRtlMode = readingDirection == "RTL"
+                    val isLtrMode = readingDirection == "LTR"
+                    val isVerticalMode = readingDirection == "VERTICAL"
+
                     OutlinedButton(
                         onClick = {
-                            scaleMode = if (scaleMode == PageScaleMode.FIT_SCREEN) PageScaleMode.FIT_WIDTH else PageScaleMode.FIT_SCREEN
+                            readingDirection = "RTL"
+                            if (!mangaId.isNullOrBlank()) {
+                                repository.readingHistoryManager.saveReadingMode(mangaId, "RTL")
+                            }
                         },
                         shape = RoundedCornerShape(2.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
+                        border = androidx.compose.foundation.BorderStroke(if (isRtlMode) 2.dp else 1.dp, EInkBlack),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (scaleMode == PageScaleMode.FIT_WIDTH) EInkBlack else EInkWhite,
-                            contentColor = if (scaleMode == PageScaleMode.FIT_WIDTH) EInkWhite else EInkBlack
+                            containerColor = if (isRtlMode) EInkBlack else EInkWhite,
+                            contentColor = if (isRtlMode) EInkWhite else EInkBlack
                         ),
                         modifier = Modifier.weight(1f).height(32.dp),
                         contentPadding = PaddingValues(0.dp)
                     ) {
                         Text(
-                            text = if (scaleMode == PageScaleMode.FIT_WIDTH) "📐 Khớp ngang" else "📐 Vừa màn hình",
-                            color = if (scaleMode == PageScaleMode.FIT_WIDTH) EInkWhite else EInkBlack,
-                            style = MaterialTheme.typography.labelSmall
+                            text = "📖 Manga (RTL)",
+                            color = if (isRtlMode) EInkWhite else EInkBlack,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1
                         )
                     }
 
-                    // Nút Chế độ Trang Đôi (Dual Page)
                     OutlinedButton(
                         onClick = {
-                            isDualPageMode = !isDualPageMode
+                            readingDirection = "LTR"
+                            if (!mangaId.isNullOrBlank()) {
+                                repository.readingHistoryManager.saveReadingMode(mangaId, "LTR")
+                            }
                         },
                         shape = RoundedCornerShape(2.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
+                        border = androidx.compose.foundation.BorderStroke(if (isLtrMode) 2.dp else 1.dp, EInkBlack),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (isDualPageMode) EInkBlack else EInkWhite,
-                            contentColor = if (isDualPageMode) EInkWhite else EInkBlack
+                            containerColor = if (isLtrMode) EInkBlack else EInkWhite,
+                            contentColor = if (isLtrMode) EInkWhite else EInkBlack
                         ),
                         modifier = Modifier.weight(1f).height(32.dp),
                         contentPadding = PaddingValues(0.dp)
                     ) {
                         Text(
-                            text = if (isDualPageMode) "📖 Trang Đôi" else "📄 1 Trang",
-                            color = if (isDualPageMode) EInkWhite else EInkBlack,
-                            style = MaterialTheme.typography.labelSmall
+                            text = "📘 Comic (LTR)",
+                            color = if (isLtrMode) EInkWhite else EInkBlack,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1
                         )
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            readingDirection = "VERTICAL"
+                            if (!mangaId.isNullOrBlank()) {
+                                repository.readingHistoryManager.saveReadingMode(mangaId, "VERTICAL")
+                            }
+                        },
+                        shape = RoundedCornerShape(2.dp),
+                        border = androidx.compose.foundation.BorderStroke(if (isVerticalMode) 2.dp else 1.dp, EInkBlack),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (isVerticalMode) EInkBlack else EInkWhite,
+                            contentColor = if (isVerticalMode) EInkWhite else EInkBlack
+                        ),
+                        modifier = Modifier.weight(1f).height(32.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            text = "📜 Webtoon (Dọc)",
+                            color = if (isVerticalMode) EInkWhite else EInkBlack,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                if (readingDirection != "VERTICAL") {
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // Dòng 1: Tối ưu tỷ lệ màn hình (Fit Screen vs Fit Width) & (1 Trang vs Trang Đôi)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Nút Fit Mode
+                        OutlinedButton(
+                            onClick = {
+                                scaleMode = if (scaleMode == PageScaleMode.FIT_SCREEN) PageScaleMode.FIT_WIDTH else PageScaleMode.FIT_SCREEN
+                            },
+                            shape = RoundedCornerShape(2.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (scaleMode == PageScaleMode.FIT_WIDTH) EInkBlack else EInkWhite,
+                                contentColor = if (scaleMode == PageScaleMode.FIT_WIDTH) EInkWhite else EInkBlack
+                            ),
+                            modifier = Modifier.weight(1f).height(32.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(
+                                text = if (scaleMode == PageScaleMode.FIT_WIDTH) "📐 Khớp ngang" else "📐 Vừa màn hình",
+                                color = if (scaleMode == PageScaleMode.FIT_WIDTH) EInkWhite else EInkBlack,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+
+                        // Nút Chế độ Trang Đôi (Dual Page)
+                        OutlinedButton(
+                            onClick = {
+                                isDualPageMode = !isDualPageMode
+                            },
+                            shape = RoundedCornerShape(2.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (isDualPageMode) EInkBlack else EInkWhite,
+                                contentColor = if (isDualPageMode) EInkWhite else EInkBlack
+                            ),
+                            modifier = Modifier.weight(1f).height(32.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(
+                                text = if (isDualPageMode) "📖 Trang Đôi" else "📄 1 Trang",
+                                color = if (isDualPageMode) EInkWhite else EInkBlack,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
                     }
                 }
 

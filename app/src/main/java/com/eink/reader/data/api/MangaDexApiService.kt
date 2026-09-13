@@ -251,8 +251,10 @@ class MangaDexApiService(
             .addQueryParameter("includes[]", "scanlation_group")
             .applyContentRatings()
 
-        languages.forEach { lang ->
-            urlBuilder.addQueryParameter("translatedLanguage[]", lang)
+        if (!languages.contains("all") && languages.isNotEmpty()) {
+            languages.forEach { lang ->
+                urlBuilder.addQueryParameter("translatedLanguage[]", lang)
+            }
         }
 
         val request = Request.Builder().url(urlBuilder.build()).build()

@@ -82,7 +82,7 @@ fun DetailScreen(
     fun loadChapters(lang: String) {
         coroutineScope.launch {
             isLoading = true
-            val langList = if (lang == "all") listOf("vi", "en") else listOf(lang)
+            val langList = if (lang == "all") emptyList() else listOf(lang)
             val result = repository.getChapters(mangaId, langList)
             result.onSuccess { list ->
                 chapters = list
@@ -220,6 +220,7 @@ fun DetailScreen(
                     ) {
                         ChapterHeaderFilter(
                             selectedLanguage = selectedLanguage,
+                            availableLanguages = manga?.attributes?.availableTranslatedLanguages ?: emptyList(),
                             onLanguageSelected = {
                                 selectedLanguage = it
                                 loadChapters(it)
@@ -281,6 +282,7 @@ fun DetailScreen(
                     item {
                         ChapterHeaderFilter(
                             selectedLanguage = selectedLanguage,
+                            availableLanguages = manga?.attributes?.availableTranslatedLanguages ?: emptyList(),
                             onLanguageSelected = {
                                 selectedLanguage = it
                                 loadChapters(it)
@@ -669,18 +671,27 @@ fun MangaInfoContent(
 @Composable
 fun ChapterHeaderFilter(
     selectedLanguage: String,
+    availableLanguages: List<String> = emptyList(),
     onLanguageSelected: (String) -> Unit,
     isAscending: Boolean,
     onToggleSort: () -> Unit
 ) {
+    var showLanguagePicker by remember { mutableStateOf(false) }
+    val commonLangs = listOf("vi" to "Tiếng Việt", "en" to "English", "all" to "Tất cả")
+    val isCustomLang = commonLangs.none { it.first == selectedLanguage }
+
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("vi" to "Tiếng Việt", "en" to "English", "all" to "Tất cả").forEach { (code, label) ->
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                commonLangs.forEach { (code, label) ->
                     val isSelected = selectedLanguage == code
                     OutlinedButton(
                         onClick = {
@@ -705,6 +716,45 @@ fun ChapterHeaderFilter(
                         )
                     }
                 }
+
+                if (isCustomLang) {
+                    val customName = com.eink.reader.data.model.Languages.getDisplayName(selectedLanguage)
+                    OutlinedButton(
+                        onClick = { showLanguagePicker = true },
+                        shape = RoundedCornerShape(2.dp),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, EInkBlack),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = EInkBlack,
+                            contentColor = EInkWhite
+                        ),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text(
+                            text = "$customName ▼",
+                            color = EInkWhite,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = { showLanguagePicker = true },
+                    shape = RoundedCornerShape(2.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = EInkWhite,
+                        contentColor = EInkBlack
+                    ),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Text(
+                        text = "🌐 Khác ▼",
+                        color = EInkBlack,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
             }
 
             IconButton(
@@ -723,6 +773,130 @@ fun ChapterHeaderFilter(
 
         Spacer(modifier = Modifier.height(8.dp))
         HorizontalDivider(color = EInkBorder, thickness = 1.dp)
+    }
+
+    if (showLanguagePicker) {
+        val detectedList = availableLanguages.filter { it.isNotBlank() }.distinct()
+        val allLangs = if (detectedList.isNotEmpty()) {
+            val list = detectedList.toMutableList()
+            com.eink.reader.data.model.Languages.ALL_COMMON_LANGUAGES.forEach { (code, _) ->
+                if (!list.contains(code)) list.add(code)
+            }
+            list
+        } else {
+            com.eink.reader.data.model.Languages.ALL_COMMON_LANGUAGES.map { it.first }
+        }
+
+        AlertDialog(
+            onDismissRequest = { showLanguagePicker = false },
+            shape = RoundedCornerShape(4.dp),
+            containerColor = EInkWhite,
+            title = {
+                Text(
+                    text = "CHỌN NGÔN NGỮ CHƯƠNG",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = EInkBlack
+                )
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = if (detectedList.isNotEmpty()) "Các ngôn ngữ phát hiện có sẵn từ MangaDex:" else "Chọn ngôn ngữ bạn muốn lọc:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = EInkDarkGray
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 340.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        item {
+                            val isSelected = selectedLanguage == "all"
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onLanguageSelected("all")
+                                        showLanguagePicker = false
+                                    }
+                                    .background(if (isSelected) EInkSurface else Color.Transparent)
+                                    .border(1.dp, if (isSelected) EInkBlack else EInkBorder, RoundedCornerShape(2.dp))
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "🌐 Tất cả ngôn ngữ (Hiển thị toàn bộ)",
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    fontSize = 13.sp,
+                                    color = EInkBlack
+                                )
+                                if (isSelected) {
+                                    Text("✓", fontWeight = FontWeight.Bold, color = EInkBlack)
+                                }
+                            }
+                        }
+
+                        items(allLangs) { code ->
+                            val isSelected = selectedLanguage == code
+                            val name = com.eink.reader.data.model.Languages.getDisplayName(code)
+                            val isDetected = detectedList.contains(code)
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onLanguageSelected(code)
+                                        showLanguagePicker = false
+                                    }
+                                    .background(if (isSelected) EInkSurface else Color.Transparent)
+                                    .border(1.dp, if (isSelected) EInkBlack else EInkBorder, RoundedCornerShape(2.dp))
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "[${code.uppercase()}]",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = EInkBlack,
+                                        modifier = Modifier
+                                            .border(1.dp, EInkBlack, RoundedCornerShape(2.dp))
+                                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = name,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        fontSize = 13.sp,
+                                        color = EInkBlack
+                                    )
+                                    if (isDetected) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "• có sẵn",
+                                            fontSize = 11.sp,
+                                            color = EInkDarkGray
+                                        )
+                                    }
+                                }
+                                if (isSelected) {
+                                    Text("✓", fontWeight = FontWeight.Bold, color = EInkBlack)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLanguagePicker = false }) {
+                    Text("ĐÓNG", color = EInkBlack, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
     }
 }
 

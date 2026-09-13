@@ -12,6 +12,7 @@ import kotlinx.serialization.json.Json
 data class CachedMangaTag(
     val mangaId: String,
     val contentRating: String? = null,
+    val originalLanguage: String? = null,
     val tagNames: List<String> = emptyList(),
     val isPornographic: Boolean = false
 )
@@ -74,12 +75,14 @@ class MangaTagCacheManager private constructor(context: Context) {
     fun saveMangaTag(manga: MangaItem) {
         val cache = loadCache()
         val rating = manga.attributes.contentRating?.lowercase()?.trim()
+        val origLang = manga.attributes.originalLanguage?.lowercase()?.trim()
         val tags = manga.attributes.tags.mapNotNull { it.attributes.name["en"] ?: it.attributes.name.values.firstOrNull() }
         val isPorno = rating == "pornographic" || tags.any { it.equals("hentai", ignoreCase = true) || it.equals("erotica", ignoreCase = true) && rating == "pornographic" }
 
         cache[manga.id] = CachedMangaTag(
             mangaId = manga.id,
             contentRating = rating,
+            originalLanguage = origLang,
             tagNames = tags,
             isPornographic = isPorno
         )
@@ -95,12 +98,14 @@ class MangaTagCacheManager private constructor(context: Context) {
         var changed = false
         for (manga in mangaList) {
             val rating = manga.attributes.contentRating?.lowercase()?.trim()
+            val origLang = manga.attributes.originalLanguage?.lowercase()?.trim()
             val tags = manga.attributes.tags.mapNotNull { it.attributes.name["en"] ?: it.attributes.name.values.firstOrNull() }
             val isPorno = rating == "pornographic" || tags.any { it.equals("hentai", ignoreCase = true) || it.equals("erotica", ignoreCase = true) && rating == "pornographic" }
 
             cache[manga.id] = CachedMangaTag(
                 mangaId = manga.id,
                 contentRating = rating,
+                originalLanguage = origLang,
                 tagNames = tags,
                 isPornographic = isPorno
             )
@@ -109,6 +114,19 @@ class MangaTagCacheManager private constructor(context: Context) {
         if (changed) {
             persistCache()
         }
+    }
+
+    /**
+     * Kiểm tra xem truyện có phải là Webtoon / Manhwa (cuộn dọc) không
+     */
+    fun isWebtoon(mangaId: String): Boolean {
+        val cached = loadCache()[mangaId] ?: return false
+        val hasWebtoonTag = cached.tagNames.any {
+            it.equals("Long Strip", ignoreCase = true) ||
+            it.equals("Web Comic", ignoreCase = true)
+        }
+        val isKorean = cached.originalLanguage?.equals("ko", ignoreCase = true) == true
+        return hasWebtoonTag || isKorean
     }
 
     /**

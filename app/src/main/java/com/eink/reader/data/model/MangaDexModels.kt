@@ -52,12 +52,24 @@ data class MangaItem(
 
     val authorName: String?
         get() = relationships.firstOrNull { it.type == "author" }?.attributes?.name
+
+    val isWebtoon: Boolean
+        get() {
+            val hasWebtoonTag = attributes.tags.any { tag ->
+                val name = tag.attributes.name["en"] ?: tag.attributes.name.values.firstOrNull() ?: ""
+                name.equals("Long Strip", ignoreCase = true) || name.equals("Web Comic", ignoreCase = true)
+            }
+            val isKorean = attributes.originalLanguage?.equals("ko", ignoreCase = true) == true
+            return hasWebtoonTag || isKorean
+        }
 }
 
 @Serializable
 data class MangaAttributes(
     val title: Map<String, String> = emptyMap(),
     val description: Map<String, String> = emptyMap(),
+    val originalLanguage: String? = null,
+    val availableTranslatedLanguages: List<String> = emptyList(),
     val status: String? = null,
     val year: Int? = null,
     val contentRating: String? = null,

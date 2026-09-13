@@ -13,8 +13,8 @@ android {
         applicationId = "com.eink.reader"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.2"
+        versionCode = 5
+        versionName = "1.3"
 
         vectorDrawables {
             useSupportLibrary = true
