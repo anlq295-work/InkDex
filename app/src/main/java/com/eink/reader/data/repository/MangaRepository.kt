@@ -3,6 +3,7 @@ package com.eink.reader.data.repository
 import com.eink.reader.data.api.MangaDexApiService
 import com.eink.reader.data.model.ChapterItem
 import com.eink.reader.data.model.MangaItem
+import com.eink.reader.util.NaturalOrderComparator
 
 data class HomeFeedCache(
     val followedList: List<MangaItem>,
@@ -120,7 +121,11 @@ class MangaRepository(
 
             allChapters.sortedWith(
                 compareBy(
-                    { it.attributes.chapter?.toDoubleOrNull() ?: Double.MAX_VALUE },
+                    {
+                        NaturalOrderComparator.parseChapterNumber(it.attributes.chapter)
+                            ?: NaturalOrderComparator.parseChapterNumber(it.displayTitle)
+                            ?: Float.MAX_VALUE
+                    },
                     { it.attributes.publishAt ?: "" }
                 )
             )

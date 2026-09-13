@@ -103,4 +103,75 @@ class NaturalOrderComparatorTest {
         assertEquals("나 혼자만 레벨업", manga.displayTitle)
         assertEquals("Description en français", manga.displayDescription)
     }
+
+    @Test
+    fun testDecimalChapterSortingAndNavigation() {
+        val rawList = listOf(
+            "Chapter 26.5.cbz",
+            "Chapter 22.cbz",
+            "Chapter 21.cbz",
+            "Chapter 21.5.cbz"
+        )
+        val sorted = rawList.sortedWith(NaturalOrderComparator)
+        val expected = listOf(
+            "Chapter 21.cbz",
+            "Chapter 21.5.cbz",
+            "Chapter 22.cbz",
+            "Chapter 26.5.cbz"
+        )
+        assertEquals(expected, sorted)
+
+        // Kiểm tra parse số thập phân
+        assertEquals(21.5f, NaturalOrderComparator.parseChapterNumber("Ch. 21.5") ?: 0f, 0.001f)
+        assertEquals(21.5f, NaturalOrderComparator.parseChapterNumber("Ch. 21,5") ?: 0f, 0.001f)
+        assertEquals(22.0f, NaturalOrderComparator.parseChapterNumber("Chapter 22") ?: 0f, 0.001f)
+        assertEquals(26.5f, NaturalOrderComparator.parseChapterNumber("Ch. 26.5") ?: 0f, 0.001f)
+
+        // Giả lập logic tìm chương tiếp theo: từ 21.5 phải sang 22, KHÔNG nhảy cóc sang 26.5
+        val effChapterNum = 21.5f
+        val upcomingNums = sorted.mapNotNull { NaturalOrderComparator.parseChapterNumber(it) }
+            .filter { it > effChapterNum + 0.0001f }
+        assertEquals(listOf(22.0f, 26.5f), upcomingNums)
+        assertEquals(22.0f, upcomingNums.first(), 0.001f)
+    }
+
+    @Test
+    fun testScopedScanlationGroupSelection() {
+        data class MockChapter(val chapter: String, val group: String)
+
+        val allChapters = listOf(
+            MockChapter("21", "Group A"),
+            MockChapter("21.5", "Group B"),
+            MockChapter("22", "Group A"),
+            MockChapter("23", "Group A"),
+            MockChapter("26.5", "Group B")
+        )
+
+        val currentChapter = MockChapter("21.5", "Group B")
+        val effNum = 21.5f
+        val currentGroup = currentChapter.group
+
+        // Upcoming chapters with number > 21.5
+        val upcoming = allChapters.filter {
+            val n = NaturalOrderComparator.parseChapterNumber(it.chapter)
+            n != null && n > effNum + 0.0001f
+        }
+
+        // Logic mới: lấy số chương của chương kế tiếp
+        val firstUpcoming = upcoming.first()
+        val nextChapterNum = NaturalOrderComparator.parseChapterNumber(firstUpcoming.chapter)!!
+
+        // Gom các ứng viên của đúng chương kế tiếp đó
+        val immediateNextCandidates = upcoming.takeWhile {
+            val n = NaturalOrderComparator.parseChapterNumber(it.chapter)
+            n != null && kotlin.math.abs(n - nextChapterNum) < 0.001f
+        }
+
+        val chosen = immediateNextCandidates.firstOrNull { it.group == currentGroup }
+            ?: immediateNextCandidates.first()
+
+        // Kết quả phải là chương 22 (Group A), KHÔNG ĐƯỢC LÀ chương 26.5 (Group B)!
+        assertEquals("22", chosen.chapter)
+        assertEquals("Group A", chosen.group)
+    }
 }

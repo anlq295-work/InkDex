@@ -163,7 +163,11 @@ fun ReaderScreen(
                     // Sắp xếp thứ tự chương tăng dần: Ch.1 -> Ch.2 -> Ch.3...
                     chaptersList = list.sortedWith(
                         compareBy(
-                            { it.attributes.chapter?.toFloatOrNull() ?: Float.MAX_VALUE },
+                            {
+                                NaturalOrderComparator.parseChapterNumber(it.attributes.chapter)
+                                    ?: NaturalOrderComparator.parseChapterNumber(it.displayTitle)
+                                    ?: Float.MAX_VALUE
+                            },
                             { it.attributes.publishAt ?: "" }
                         )
                     )
@@ -214,7 +218,7 @@ fun ReaderScreen(
                     val targetNum = NaturalOrderComparator.parseChapterNumber(activeChapterTitle)
                     chaptersList.firstOrNull { ch ->
                         ch.displayTitle.equals(activeChapterTitle, ignoreCase = true) ||
-                        (targetNum != null && ch.attributes.chapter?.toFloatOrNull() == targetNum)
+                        (targetNum != null && ch.attributes.chapter?.let { NaturalOrderComparator.parseChapterNumber(it) }?.let { kotlin.math.abs(it - targetNum) < 0.001f } == true)
                     }
                 }
         }
@@ -223,10 +227,21 @@ fun ReaderScreen(
         currentOnlineChapter?.attributes?.translatedLanguage
     }
     val sameLangChapters = remember(chaptersList, currentLanguage) {
-        if (!currentLanguage.isNullOrBlank()) {
+        val list = if (!currentLanguage.isNullOrBlank()) {
             val filtered = chaptersList.filter { it.attributes.translatedLanguage.equals(currentLanguage, ignoreCase = true) }
             if (filtered.isNotEmpty()) filtered else chaptersList
         } else chaptersList
+
+        list.sortedWith(
+            compareBy(
+                {
+                    NaturalOrderComparator.parseChapterNumber(it.attributes.chapter)
+                        ?: NaturalOrderComparator.parseChapterNumber(it.displayTitle)
+                        ?: Float.MAX_VALUE
+                },
+                { it.attributes.publishAt ?: "" }
+            )
+        )
     }
 
     val currentGroupId = remember(currentOnlineChapter) {
@@ -236,8 +251,9 @@ fun ReaderScreen(
         currentOnlineChapter?.scanlationGroup
     }
     val currentChapterNum = remember(currentOnlineChapter, activeChapterTitle) {
-        currentOnlineChapter?.attributes?.chapter?.toFloatOrNull()
+        currentOnlineChapter?.attributes?.chapter?.let { NaturalOrderComparator.parseChapterNumber(it) }
             ?: NaturalOrderComparator.parseChapterNumber(activeChapterTitle)
+            ?: currentOnlineChapter?.displayTitle?.let { NaturalOrderComparator.parseChapterNumber(it) }
     }
 
     fun isSameGroup(item: com.eink.reader.data.model.ChapterItem): Boolean {
@@ -256,17 +272,19 @@ fun ReaderScreen(
         sameLangChapters.indexOfFirst { it.id == activeChapterId }
     }
 
-    // Tự động tìm chương kế tiếp: Ưu tiên cùng nhóm dịch, fallback nhóm khác nếu hết
+    // Tự động tìm chương kế tiếp: Ưu tiên cùng nhóm dịch cho đúng chương tiếp theo, fallback nhóm khác nếu hết
     val nextOnlineChapter = remember(currentOnlineChapter, sameLangChapters, currentChapterNum, currentGroupId, currentGroupName, currentSameLangIdx, activeChapterTitle) {
         if (sameLangChapters.isEmpty()) null
         else {
             val effChapterNum = currentChapterNum
                 ?: NaturalOrderComparator.parseChapterNumber(activeChapterTitle)
+                ?: currentOnlineChapter?.displayTitle?.let { NaturalOrderComparator.parseChapterNumber(it) }
 
             val upcoming = if (effChapterNum != null) {
                 sameLangChapters.filter { cand ->
-                    val n = cand.attributes.chapter?.toFloatOrNull()
-                    n != null && n > effChapterNum
+                    val n = NaturalOrderComparator.parseChapterNumber(cand.attributes.chapter)
+                        ?: NaturalOrderComparator.parseChapterNumber(cand.displayTitle)
+                    n != null && n > effChapterNum + 0.0001f
                 }
             } else if (currentSameLangIdx in 0 until sameLangChapters.size - 1) {
                 sameLangChapters.subList(currentSameLangIdx + 1, sameLangChapters.size)
@@ -274,29 +292,42 @@ fun ReaderScreen(
 
             if (upcoming.isEmpty()) null
             else {
-                // 1. Ưu tiên tìm chương tiếp theo của CÙNG nhóm dịch
-                val sameGroupCandidates = upcoming.filter { isSameGroup(it) }
-                if (sameGroupCandidates.isNotEmpty()) {
-                    sameGroupCandidates.first()
+                // Xác định số chương của chương kế tiếp ngay sau chương hiện tại
+                val firstUpcoming = upcoming.first()
+                val nextChapterNum = NaturalOrderComparator.parseChapterNumber(firstUpcoming.attributes.chapter)
+                    ?: NaturalOrderComparator.parseChapterNumber(firstUpcoming.displayTitle)
+
+                // Gom tất cả bản dịch của đúng chương kế tiếp đó (ví dụ: Ch 22 được dịch bởi nhóm A, nhóm B)
+                val immediateNextCandidates = if (nextChapterNum != null) {
+                    upcoming.takeWhile { cand ->
+                        val n = NaturalOrderComparator.parseChapterNumber(cand.attributes.chapter)
+                            ?: NaturalOrderComparator.parseChapterNumber(cand.displayTitle)
+                        n != null && kotlin.math.abs(n - nextChapterNum) < 0.001f
+                    }
                 } else {
-                    // 2. Nếu nhóm hiện tại không có chương tiếp theo -> lấy chương kế tiếp của nhóm bất kỳ
-                    upcoming.first()
+                    listOf(firstUpcoming)
                 }
+
+                // Ưu tiên bản dịch của CÙNG nhóm dịch trong các ứng viên của chương kế tiếp này
+                val sameGroupCandidate = immediateNextCandidates.firstOrNull { isSameGroup(it) }
+                sameGroupCandidate ?: immediateNextCandidates.first()
             }
         }
     }
 
-    // Tự động tìm chương trước đó: Ưu tiên cùng nhóm dịch
+    // Tự động tìm chương trước đó: Ưu tiên cùng nhóm dịch cho đúng chương trước đó
     val prevOnlineChapter = remember(currentOnlineChapter, sameLangChapters, currentChapterNum, currentGroupId, currentGroupName, currentSameLangIdx, activeChapterTitle) {
         if (sameLangChapters.isEmpty()) null
         else {
             val effChapterNum = currentChapterNum
                 ?: NaturalOrderComparator.parseChapterNumber(activeChapterTitle)
+                ?: currentOnlineChapter?.displayTitle?.let { NaturalOrderComparator.parseChapterNumber(it) }
 
             val previous = if (effChapterNum != null) {
                 sameLangChapters.filter { cand ->
-                    val n = cand.attributes.chapter?.toFloatOrNull()
-                    n != null && n < effChapterNum
+                    val n = NaturalOrderComparator.parseChapterNumber(cand.attributes.chapter)
+                        ?: NaturalOrderComparator.parseChapterNumber(cand.displayTitle)
+                    n != null && n < effChapterNum - 0.0001f
                 }
             } else if (currentSameLangIdx > 0) {
                 sameLangChapters.subList(0, currentSameLangIdx)
@@ -304,14 +335,25 @@ fun ReaderScreen(
 
             if (previous.isEmpty()) null
             else {
-                // 1. Ưu tiên cùng nhóm dịch (lấy chương gần nhất trước đó)
-                val sameGroupCandidates = previous.filter { isSameGroup(it) }
-                if (sameGroupCandidates.isNotEmpty()) {
-                    sameGroupCandidates.last()
+                // Xác định số chương của chương ngay trước chương hiện tại
+                val lastPrevious = previous.last()
+                val prevChapterNum = NaturalOrderComparator.parseChapterNumber(lastPrevious.attributes.chapter)
+                    ?: NaturalOrderComparator.parseChapterNumber(lastPrevious.displayTitle)
+
+                // Gom tất cả bản dịch của đúng chương trước đó
+                val immediatePrevCandidates = if (prevChapterNum != null) {
+                    previous.takeLastWhile { cand ->
+                        val n = NaturalOrderComparator.parseChapterNumber(cand.attributes.chapter)
+                            ?: NaturalOrderComparator.parseChapterNumber(cand.displayTitle)
+                        n != null && kotlin.math.abs(n - prevChapterNum) < 0.001f
+                    }
                 } else {
-                    // 2. Fallback sang nhóm khác
-                    previous.last()
+                    listOf(lastPrevious)
                 }
+
+                // Ưu tiên bản dịch của CÙNG nhóm dịch trong các ứng viên của chương trước đó
+                val sameGroupCandidate = immediatePrevCandidates.lastOrNull { isSameGroup(it) }
+                sameGroupCandidate ?: immediatePrevCandidates.last()
             }
         }
     }
@@ -385,9 +427,11 @@ fun ReaderScreen(
     // Phát hiện nhảy chương (Skip chapter detection)
     fun isChapterSkipped(currChapter: com.eink.reader.data.model.ChapterItem?, nextChapter: com.eink.reader.data.model.ChapterItem?): Boolean {
         if (nextChapter == null) return false
-        val currNum = currChapter?.attributes?.chapter?.toFloatOrNull()
+        val currNum = currChapter?.attributes?.chapter?.let { NaturalOrderComparator.parseChapterNumber(it) }
             ?: NaturalOrderComparator.parseChapterNumber(activeChapterTitle)
-        val nextNum = nextChapter.attributes.chapter?.toFloatOrNull()
+            ?: currChapter?.displayTitle?.let { NaturalOrderComparator.parseChapterNumber(it) }
+        val nextNum = nextChapter.attributes.chapter?.let { NaturalOrderComparator.parseChapterNumber(it) }
+            ?: NaturalOrderComparator.parseChapterNumber(nextChapter.displayTitle)
         if (currNum == null || nextNum == null) return false
 
         // Kiểm tra 1: Nhảy cách số nguyên (ví dụ: Ch.1 -> Ch.3, Ch.1 -> Ch.2.5, Ch.5 -> Ch.7)
@@ -397,8 +441,9 @@ fun ReaderScreen(
 
         // Kiểm tra 2: Có chương nguyên nằm giữa trong danh sách cùng ngôn ngữ
         val hasIntermediateWhole = sameLangChapters.any { ch ->
-            val n = ch.attributes.chapter?.toFloatOrNull()
-            n != null && n > currNum && n < nextNum && (n.toInt() > currNum.toInt() && n.toInt() < nextNum.toInt())
+            val n = ch.attributes.chapter?.let { NaturalOrderComparator.parseChapterNumber(it) }
+                ?: NaturalOrderComparator.parseChapterNumber(ch.displayTitle)
+            n != null && n > currNum + 0.0001f && n < nextNum - 0.0001f && (n.toInt() > currNum.toInt() && n.toInt() < nextNum.toInt())
         }
         return hasIntermediateWhole
     }
