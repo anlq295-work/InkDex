@@ -108,8 +108,17 @@ class MangaRepository(
 
     suspend fun getChapters(mangaId: String, languages: List<String>): Result<List<ChapterItem>> {
         return runCatching {
-            val response = apiService.getChapterFeed(mangaId, languages)
-            response.data.sortedWith(
+            val allChapters = mutableListOf<ChapterItem>()
+            var offset = 0
+            val limit = 500
+            do {
+                val response = apiService.getChapterFeed(mangaId, languages, limit = limit, offset = offset)
+                allChapters.addAll(response.data)
+                offset += response.data.size
+                if (response.data.isEmpty()) break
+            } while (offset < response.total && offset < 2000)
+
+            allChapters.sortedWith(
                 compareBy(
                     { it.attributes.chapter?.toDoubleOrNull() ?: Double.MAX_VALUE },
                     { it.attributes.publishAt ?: "" }

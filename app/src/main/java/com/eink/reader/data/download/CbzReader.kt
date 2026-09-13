@@ -7,6 +7,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipFile
 
+import com.eink.reader.util.NaturalOrderComparator
+
 object CbzReader {
 
     private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp", "gif")
@@ -34,7 +36,7 @@ object CbzReader {
         ZipFile(cbzFile).use { zip ->
             val entries = zip.entries().asSequence()
                 .filter { !it.isDirectory && IMAGE_EXTENSIONS.contains(File(it.name).extension.lowercase()) }
-                .sortedWith(compareBy { it.name })
+                .sortedWith { e1, e2 -> NaturalOrderComparator.compare(e1.name, e2.name) }
                 .toList()
 
             for ((index, entry) in entries.withIndex()) {
@@ -54,8 +56,6 @@ object CbzReader {
     }
 
     private fun compareByNaturalOrder(): Comparator<File> {
-        return Comparator { f1, f2 ->
-            f1.name.compareTo(f2.name, ignoreCase = true)
-        }
+        return NaturalOrderComparator.FileComparator
     }
 }

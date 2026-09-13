@@ -342,7 +342,7 @@ class DownloadManager private constructor(private val context: Context) {
                     chapterTitle = chTitle,
                     sizeBytes = file.length()
                 )
-            }.sortedBy { it.chapterTitle }
+            }.sortedWith { a, b -> com.eink.reader.util.NaturalOrderComparator.compare(a.chapterTitle, b.chapterTitle) }
 
             result.add(
                 DownloadedManga(

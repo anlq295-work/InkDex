@@ -38,6 +38,7 @@ import com.eink.reader.data.repository.MangaRepository
 import com.eink.reader.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.eink.reader.util.NaturalOrderComparator
 
 enum class PageScaleMode(val label: String) {
     FIT_SCREEN("Vừa màn hình"),
@@ -171,7 +172,7 @@ fun ReaderScreen(
             val parent = file.parentFile
             if (parent != null && parent.isDirectory) {
                 val cbzs = parent.listFiles { f -> f.extension.equals("cbz", ignoreCase = true) }
-                    ?.sortedWith(compareBy { it.name.lowercase() }) ?: emptyList()
+                    ?.sortedWith(NaturalOrderComparator.FileComparator) ?: emptyList()
                 siblingCbzFiles = cbzs
             }
         }
@@ -183,13 +184,16 @@ fun ReaderScreen(
     var pendingOfflineCbz by remember { mutableStateOf<java.io.File?>(null) }
 
     // Xác định chương hiện tại đang đọc
-    val currentOnlineChapter = remember(activeChapterId, chaptersList) {
+    val currentOnlineChapter = remember(activeChapterId, chaptersList, activeChapterTitle) {
         if (chaptersList.isEmpty()) null
         else {
             chaptersList.firstOrNull { it.id == activeChapterId }
-                ?: chaptersList.firstOrNull { ch ->
-                    ch.displayTitle == activeChapterTitle ||
-                    (ch.attributes.chapter != null && activeChapterTitle.contains("Ch.${ch.attributes.chapter}"))
+                ?: run {
+                    val targetNum = NaturalOrderComparator.parseChapterNumber(activeChapterTitle)
+                    chaptersList.firstOrNull { ch ->
+                        ch.displayTitle.equals(activeChapterTitle, ignoreCase = true) ||
+                        (targetNum != null && ch.attributes.chapter?.toFloatOrNull() == targetNum)
+                    }
                 }
         }
     }
@@ -209,8 +213,9 @@ fun ReaderScreen(
     val currentGroupName = remember(currentOnlineChapter) {
         currentOnlineChapter?.scanlationGroup
     }
-    val currentChapterNum = remember(currentOnlineChapter) {
+    val currentChapterNum = remember(currentOnlineChapter, activeChapterTitle) {
         currentOnlineChapter?.attributes?.chapter?.toFloatOrNull()
+            ?: NaturalOrderComparator.parseChapterNumber(activeChapterTitle)
     }
 
     fun isSameGroup(item: com.eink.reader.data.model.ChapterItem): Boolean {
@@ -230,13 +235,16 @@ fun ReaderScreen(
     }
 
     // Tự động tìm chương kế tiếp: Ưu tiên cùng nhóm dịch, fallback nhóm khác nếu hết
-    val nextOnlineChapter = remember(currentOnlineChapter, sameLangChapters, currentChapterNum, currentGroupId, currentGroupName, currentSameLangIdx) {
+    val nextOnlineChapter = remember(currentOnlineChapter, sameLangChapters, currentChapterNum, currentGroupId, currentGroupName, currentSameLangIdx, activeChapterTitle) {
         if (sameLangChapters.isEmpty()) null
         else {
-            val upcoming = if (currentChapterNum != null) {
+            val effChapterNum = currentChapterNum
+                ?: NaturalOrderComparator.parseChapterNumber(activeChapterTitle)
+
+            val upcoming = if (effChapterNum != null) {
                 sameLangChapters.filter { cand ->
                     val n = cand.attributes.chapter?.toFloatOrNull()
-                    n != null && n > currentChapterNum
+                    n != null && n > effChapterNum
                 }
             } else if (currentSameLangIdx in 0 until sameLangChapters.size - 1) {
                 sameLangChapters.subList(currentSameLangIdx + 1, sameLangChapters.size)
@@ -257,13 +265,16 @@ fun ReaderScreen(
     }
 
     // Tự động tìm chương trước đó: Ưu tiên cùng nhóm dịch
-    val prevOnlineChapter = remember(currentOnlineChapter, sameLangChapters, currentChapterNum, currentGroupId, currentGroupName, currentSameLangIdx) {
+    val prevOnlineChapter = remember(currentOnlineChapter, sameLangChapters, currentChapterNum, currentGroupId, currentGroupName, currentSameLangIdx, activeChapterTitle) {
         if (sameLangChapters.isEmpty()) null
         else {
-            val previous = if (currentChapterNum != null) {
+            val effChapterNum = currentChapterNum
+                ?: NaturalOrderComparator.parseChapterNumber(activeChapterTitle)
+
+            val previous = if (effChapterNum != null) {
                 sameLangChapters.filter { cand ->
                     val n = cand.attributes.chapter?.toFloatOrNull()
-                    n != null && n < currentChapterNum
+                    n != null && n < effChapterNum
                 }
             } else if (currentSameLangIdx > 0) {
                 sameLangChapters.subList(0, currentSameLangIdx)
@@ -351,8 +362,9 @@ fun ReaderScreen(
 
     // Phát hiện nhảy chương (Skip chapter detection)
     fun isChapterSkipped(currChapter: com.eink.reader.data.model.ChapterItem?, nextChapter: com.eink.reader.data.model.ChapterItem?): Boolean {
-        if (currChapter == null || nextChapter == null) return false
-        val currNum = currChapter.attributes.chapter?.toFloatOrNull()
+        if (nextChapter == null) return false
+        val currNum = currChapter?.attributes?.chapter?.toFloatOrNull()
+            ?: NaturalOrderComparator.parseChapterNumber(activeChapterTitle)
         val nextNum = nextChapter.attributes.chapter?.toFloatOrNull()
         if (currNum == null || nextNum == null) return false
 
@@ -370,9 +382,8 @@ fun ReaderScreen(
     }
 
     fun isCbzSkipped(currTitle: String, nextName: String): Boolean {
-        val numRegex = Regex("""(?:ch|chapter|c|chap|tập)?[\s._-]*([0-9]+(?:\.[0-9]+)?)""", RegexOption.IGNORE_CASE)
-        val currMatch = numRegex.findAll(currTitle).lastOrNull()?.groupValues?.get(1)?.toFloatOrNull()
-        val nextMatch = numRegex.findAll(nextName).lastOrNull()?.groupValues?.get(1)?.toFloatOrNull()
+        val currMatch = NaturalOrderComparator.parseChapterNumber(currTitle)
+        val nextMatch = NaturalOrderComparator.parseChapterNumber(nextName)
         if (currMatch != null && nextMatch != null) {
             return (nextMatch - currMatch >= 1.5f || nextMatch.toInt() > currMatch.toInt() + 1)
         }

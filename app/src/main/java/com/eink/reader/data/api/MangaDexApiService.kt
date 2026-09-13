@@ -241,7 +241,7 @@ class MangaDexApiService(
     suspend fun getChapterFeed(
         mangaId: String,
         languages: List<String> = listOf("vi", "en"),
-        limit: Int = 100,
+        limit: Int = 500,
         offset: Int = 0
     ): ChapterListResponse = withContext(Dispatchers.IO) {
         val urlBuilder = "$baseUrl/manga/$mangaId/feed".toHttpUrlOrNull()!!.newBuilder()
