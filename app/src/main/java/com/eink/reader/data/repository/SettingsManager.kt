@@ -80,9 +80,20 @@ class SettingsManager(context: Context) {
     }
 
     // Chế độ màu giao diện ứng dụng (Theme): "LIGHT", "DARK", "SYSTEM"
+    val isAppThemeExplicitlySet: Boolean
+        get() = prefs.contains("app_theme_mode")
+
     var appThemeMode: String
-        get() = prefs.getString("app_theme_mode", "LIGHT") ?: "LIGHT"
+        get() {
+            val saved = prefs.getString("app_theme_mode", null)
+            if (saved != null) return saved
+            return if (contentRatingPornographic) "DARK" else "LIGHT"
+        }
         set(value) = prefs.edit().putString("app_theme_mode", value).apply()
+
+    fun resetAppThemeMode() {
+        prefs.edit().remove("app_theme_mode").apply()
+    }
 
     // 4. Cài đặt người đọc (Reader Settings)
     // Hướng đọc: "RTL" (Từ phải sang trái - mặc định Manga), "LTR" (Từ trái sang phải)

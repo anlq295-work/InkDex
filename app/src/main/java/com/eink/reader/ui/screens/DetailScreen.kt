@@ -145,7 +145,9 @@ fun DetailScreen(
         repository.tagCacheManager.isPornographic(mangaId, rating, tags)
     }
 
-    val isDarkEffective = isPornographic || com.eink.reader.ui.theme.LocalEInkColors.current.isDark
+    val isDarkEffective = isPornographic ||
+        repository.settingsManager.contentRatingPornographic ||
+        com.eink.reader.ui.theme.LocalEInkColors.current.isDark
 
     com.eink.reader.ui.theme.EInkReaderTheme(darkTheme = isDarkEffective) {
         Scaffold(

@@ -764,13 +764,13 @@ fun SettingsScreen(
 
                                 // Chế độ giao diện hiển thị (Theme)
                                 Text("Chế độ giao diện (Theme):", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Đảo màu tương phản cao cho màn hình E-Ink. Mặc định tự động dùng nền tối (Dark) cho truyện có gắn thẻ Pornographic.", fontSize = 11.sp, color = EInkDarkGray)
+                                Text("Đảo màu tương phản cao cho màn hình E-Ink. Mặc định tự động dùng nền tối (Dark) ở chế độ Private hoặc truyện có gắn thẻ 18+.", fontSize = 11.sp, color = EInkDarkGray)
 
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     val currentTheme = themeMode
                                     val themeOptions = listOf(
                                         "LIGHT" to "Sáng",
-                                        "DARK" to "Tối (Invert)",
+                                        "DARK" to "Tối",
                                         "SYSTEM" to "Theo máy"
                                     )
                                     themeOptions.forEach { (modeKey, modeTitle) ->
@@ -823,6 +823,9 @@ fun SettingsScreen(
                                     RatingChip("Pornographic", crPornographic) {
                                         crPornographic = it
                                         settings.contentRatingPornographic = it
+                                        if (!settings.isAppThemeExplicitlySet) {
+                                            themeMode = if (it) "DARK" else "LIGHT"
+                                        }
                                     }
                                 }
 

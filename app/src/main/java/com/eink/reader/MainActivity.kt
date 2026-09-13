@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             var disableOverscroll by remember { mutableStateOf(repository.settingsManager.eInkDisableOverscroll) }
             var appThemeMode by remember { mutableStateOf(repository.settingsManager.appThemeMode) }
+            var isPornographic by remember { mutableStateOf(repository.settingsManager.contentRatingPornographic) }
 
             DisposableEffect(Unit) {
                 val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -71,6 +72,10 @@ class MainActivity : ComponentActivity() {
                         disableOverscroll = repository.settingsManager.eInkDisableOverscroll
                     }
                     if (key == "app_theme_mode") {
+                        appThemeMode = repository.settingsManager.appThemeMode
+                    }
+                    if (key == "cr_pornographic") {
+                        isPornographic = repository.settingsManager.contentRatingPornographic
                         appThemeMode = repository.settingsManager.appThemeMode
                     }
                 }
@@ -81,10 +86,11 @@ class MainActivity : ComponentActivity() {
             }
 
             val systemInDark = androidx.compose.foundation.isSystemInDarkTheme()
-            val isAppDark = when (appThemeMode) {
-                "DARK" -> true
-                "LIGHT" -> false
-                else -> systemInDark
+            val isAppDark = when {
+                isPornographic -> true
+                appThemeMode == "DARK" -> true
+                appThemeMode == "SYSTEM" -> systemInDark
+                else -> false
             }
 
             EInkReaderTheme(darkTheme = isAppDark, disableOverscroll = disableOverscroll) {
@@ -104,7 +110,6 @@ class MainActivity : ComponentActivity() {
                     val currentRoute = navBackStackEntry?.destination?.route
 
                     val isBottomBarVisible = currentRoute in listOf("home", "library", "settings")
-                    var isPornographic by remember { mutableStateOf(repository.settingsManager.contentRatingPornographic) }
                     var startupUpdateInfo by remember { mutableStateOf<AppReleaseInfo?>(null) }
                     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
                     val coroutineScope = rememberCoroutineScope()
@@ -132,18 +137,6 @@ class MainActivity : ComponentActivity() {
                         lifecycleOwner.lifecycle.addObserver(observer)
                         onDispose {
                             lifecycleOwner.lifecycle.removeObserver(observer)
-                        }
-                    }
-
-                    DisposableEffect(Unit) {
-                        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-                            if (key == "cr_pornographic") {
-                                isPornographic = repository.settingsManager.contentRatingPornographic
-                            }
-                        }
-                        repository.settingsManager.prefsInstance.registerOnSharedPreferenceChangeListener(listener)
-                        onDispose {
-                            repository.settingsManager.prefsInstance.unregisterOnSharedPreferenceChangeListener(listener)
                         }
                     }
 

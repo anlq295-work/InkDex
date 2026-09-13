@@ -147,6 +147,18 @@ fun EInkReaderTheme(
     val colorScheme = if (darkTheme) EInkDarkColorScheme else EInkLightColorScheme
     val overscrollConfig = if (disableOverscroll) null else androidx.compose.foundation.OverscrollConfiguration()
 
+    val view = androidx.compose.ui.platform.LocalView.current
+    if (!view.isInEditMode) {
+        androidx.compose.runtime.SideEffect {
+            val window = (view.context as? android.app.Activity)?.window
+            if (window != null) {
+                val insetsController = androidx.core.view.WindowCompat.getInsetsController(window, view)
+                insetsController.isAppearanceLightStatusBars = !darkTheme
+                insetsController.isAppearanceLightNavigationBars = !darkTheme
+            }
+        }
+    }
+
     androidx.compose.runtime.CompositionLocalProvider(
         LocalEInkColors provides colors,
         androidx.compose.foundation.LocalOverscrollConfiguration provides overscrollConfig

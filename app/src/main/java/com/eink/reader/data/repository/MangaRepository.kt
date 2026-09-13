@@ -40,31 +40,41 @@ class MangaRepository(
 
     suspend fun getPopularManga(limit: Int = 20, offset: Int = 0): Result<List<MangaItem>> {
         return runCatching {
-            apiService.getPopularManga(limit, offset).data
+            val list = apiService.getPopularManga(limit, offset).data
+            tagCacheManager.saveMangaTags(list)
+            list
         }
     }
 
     suspend fun getPopularNewTitles(limit: Int = 20, offset: Int = 0): Result<List<MangaItem>> {
         return runCatching {
-            apiService.getPopularNewTitles(limit, offset).data
+            val list = apiService.getPopularNewTitles(limit, offset).data
+            tagCacheManager.saveMangaTags(list)
+            list
         }
     }
 
     suspend fun getLatestUploads(limit: Int = 20, offset: Int = 0): Result<List<MangaItem>> {
         return runCatching {
-            apiService.getLatestUploads(limit, offset).data
+            val list = apiService.getLatestUploads(limit, offset).data
+            tagCacheManager.saveMangaTags(list)
+            list
         }
     }
 
     suspend fun getRecentlyAdded(limit: Int = 20, offset: Int = 0): Result<List<MangaItem>> {
         return runCatching {
-            apiService.getRecentlyAdded(limit, offset).data
+            val list = apiService.getRecentlyAdded(limit, offset).data
+            tagCacheManager.saveMangaTags(list)
+            list
         }
     }
 
     suspend fun getRandomManga(): Result<MangaItem> {
         return runCatching {
-            apiService.getRandomManga()
+            val item = apiService.getRandomManga()
+            tagCacheManager.saveMangaTag(item)
+            item
         }
     }
 
@@ -82,7 +92,9 @@ class MangaRepository(
 
     suspend fun searchManga(query: String): Result<List<MangaItem>> {
         return runCatching {
-            apiService.searchManga(query).data
+            val list = apiService.searchManga(query).data
+            tagCacheManager.saveMangaTags(list)
+            list
         }
     }
 

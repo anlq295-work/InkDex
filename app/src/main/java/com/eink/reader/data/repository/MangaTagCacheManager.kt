@@ -77,7 +77,11 @@ class MangaTagCacheManager private constructor(context: Context) {
         val rating = manga.attributes.contentRating?.lowercase()?.trim()
         val origLang = manga.attributes.originalLanguage?.lowercase()?.trim()
         val tags = manga.attributes.tags.mapNotNull { it.attributes.name["en"] ?: it.attributes.name.values.firstOrNull() }
-        val isPorno = rating == "pornographic" || tags.any { it.equals("hentai", ignoreCase = true) || it.equals("erotica", ignoreCase = true) && rating == "pornographic" }
+        val isPorno = rating == "pornographic" || tags.any {
+            it.equals("hentai", ignoreCase = true) ||
+            it.equals("pornographic", ignoreCase = true) ||
+            (it.equals("erotica", ignoreCase = true) && rating == "pornographic")
+        }
 
         cache[manga.id] = CachedMangaTag(
             mangaId = manga.id,
@@ -100,7 +104,11 @@ class MangaTagCacheManager private constructor(context: Context) {
             val rating = manga.attributes.contentRating?.lowercase()?.trim()
             val origLang = manga.attributes.originalLanguage?.lowercase()?.trim()
             val tags = manga.attributes.tags.mapNotNull { it.attributes.name["en"] ?: it.attributes.name.values.firstOrNull() }
-            val isPorno = rating == "pornographic" || tags.any { it.equals("hentai", ignoreCase = true) || it.equals("erotica", ignoreCase = true) && rating == "pornographic" }
+            val isPorno = rating == "pornographic" || tags.any {
+                it.equals("hentai", ignoreCase = true) ||
+                it.equals("pornographic", ignoreCase = true) ||
+                (it.equals("erotica", ignoreCase = true) && rating == "pornographic")
+            }
 
             cache[manga.id] = CachedMangaTag(
                 mangaId = manga.id,
@@ -140,7 +148,7 @@ class MangaTagCacheManager private constructor(context: Context) {
         }
         val rating = fallbackRating?.lowercase()?.trim()
         if (rating == "pornographic") return true
-        if (fallbackTags.any { it.equals("hentai", ignoreCase = true) }) return true
+        if (fallbackTags.any { it.equals("hentai", ignoreCase = true) || it.equals("pornographic", ignoreCase = true) }) return true
         return false
     }
 
