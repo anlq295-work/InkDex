@@ -1,7 +1,7 @@
 {
   "config_version": 1,
   "updated_at": "2026-09-13",
-  "changelog": "Cập nhật v1.6.2: Hỗ trợ đa ngôn ngữ toàn diện (VI, EN, FR, ES, ZH, KO) trên toàn bộ màn hình, tự động đồng bộ ngôn ngữ đọc và tiêu đề theo cài đặt.",
+  "changelog": "Cập nhật v1.6.3: Đa ngôn ngữ hoàn thiện 100% cho Tủ sách (Library), các mục Cài đặt (Settings), Thông tin phần cứng & Thẻ cập nhật in-app. Tiêu đề truyện tự động hiển thị theo ngôn ngữ đang chọn.",
   "strings": {},
   "system_notice": {
     "enabled": false,

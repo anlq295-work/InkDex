@@ -54,6 +54,7 @@ fun LibraryScreen(
 
     // Reading History State
     var readingHistoryList by remember { mutableStateOf<List<com.eink.reader.data.repository.ReadingRecord>>(emptyList()) }
+    val dynamicMangaTitles = remember { mutableStateMapOf<String, String>() }
     val coroutineScope = rememberCoroutineScope()
 
     fun refreshHistory() {
@@ -67,19 +68,21 @@ fun LibraryScreen(
             }
             readingHistoryList = filtered
 
-            // Tự động quét và vá lại tên truyện / ảnh bìa nếu lịch sử trước đây bị thiếu
+            // Tự động quét và phân giải tên truyện theo ngôn ngữ đang chọn
             coroutineScope.launch {
                 var hasUpdates = false
+                val currentLang = strings.langCode
                 for (rec in records) {
                     val isOffline = rec.mangaId.endsWith(".cbz", ignoreCase = true) || rec.lastChapterId.endsWith(".cbz", ignoreCase = true)
-                    val isTitleInvalid = rec.mangaTitle.isBlank() || rec.mangaTitle == "Truyện không tên" || rec.mangaTitle == "Untitled" || rec.mangaTitle.startsWith("Ch.", ignoreCase = true)
-                    val isCoverMissing = rec.coverUrl.isNullOrBlank()
-                    if (!isOffline && (isTitleInvalid || isCoverMissing)) {
+                    if (!isOffline) {
                         repository.getMangaDetails(rec.mangaId).onSuccess { details ->
-                            val resolvedTitle = details.displayTitle
+                            val resolvedTitle = details.getDisplayTitle(currentLang)
                             val resolvedCover = details.getCoverUrl(repository.settingsManager.apiBaseUrl) ?: details.coverUrl
-                            repository.readingHistoryManager.updateMangaInfo(rec.mangaId, resolvedTitle, resolvedCover)
-                            hasUpdates = true
+                            dynamicMangaTitles[rec.mangaId] = resolvedTitle
+                            if (resolvedTitle != rec.mangaTitle || (rec.coverUrl.isNullOrBlank() && !resolvedCover.isNullOrBlank())) {
+                                repository.readingHistoryManager.updateMangaInfo(rec.mangaId, resolvedTitle, resolvedCover)
+                                hasUpdates = true
+                            }
                         }
                     }
                 }
@@ -93,6 +96,10 @@ fun LibraryScreen(
                 }
             }
         }
+    }
+
+    LaunchedEffect(strings.langCode) {
+        refreshHistory()
     }
 
     // MangaDex Sync state — restore from cache if available
@@ -145,6 +152,18 @@ fun LibraryScreen(
         downloadedMangaList = downloadManager.getDownloadedMangaList()
         selectedManga = selectedManga?.let { cur ->
             downloadedMangaList.firstOrNull { it.mangaId == cur.mangaId }
+        }
+        if (repository != null) {
+            coroutineScope.launch {
+                val currentLang = strings.langCode
+                for (dm in downloadedMangaList) {
+                    if (dm.mangaId.length >= 30 && !dm.mangaId.endsWith(".cbz", ignoreCase = true)) {
+                        repository.getMangaDetails(dm.mangaId).onSuccess { details ->
+                            dynamicMangaTitles[dm.mangaId] = details.getDisplayTitle(currentLang)
+                        }
+                    }
+                }
+            }
         }
         if (selectedLibraryTab == 2) {
             refreshOnline()
@@ -284,7 +303,7 @@ fun LibraryScreen(
                                             style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp)
                                         )
                                         Text(
-                                            text = "Định dạng CBZ • $sizeMb",
+                                            text = String.format(strings.cbzFormatSize, sizeMb),
                                             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp, color = EInkDarkGray)
                                         )
                                     }
@@ -437,12 +456,13 @@ fun LibraryScreen(
                                             Spacer(modifier = Modifier.width(12.dp))
 
                                             // Thông tin chương đang đọc
+                                            val displayMangaTitle = dynamicMangaTitles[record.mangaId] ?: record.mangaTitle
                                             Column(
                                                 modifier = Modifier.weight(1f),
                                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                                             ) {
                                                 Text(
-                                                    text = record.mangaTitle,
+                                                    text = displayMangaTitle,
                                                     style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis
@@ -454,9 +474,9 @@ fun LibraryScreen(
                                                     overflow = TextOverflow.Ellipsis
                                                 )
                                                 val pageProgress = if (record.totalPages > 0) {
-                                                    "Trang ${record.lastReadPage} / ${record.totalPages} • ${(record.lastReadPage * 100 / record.totalPages)}%"
+                                                    String.format(strings.pageProgressFormat, record.lastReadPage, record.totalPages, (record.lastReadPage * 100 / record.totalPages))
                                                 } else {
-                                                    "Trang ${record.lastReadPage}"
+                                                    String.format(strings.pageOnlyFormat, record.lastReadPage)
                                                 }
                                                 Text(
                                                     text = pageProgress,
@@ -479,7 +499,7 @@ fun LibraryScreen(
                                                                 record.lastChapterId,
                                                                 record.lastChapterTitle,
                                                                 record.mangaId,
-                                                                record.mangaTitle,
+                                                                displayMangaTitle,
                                                                 record.coverUrl,
                                                                 record.lastReadPage
                                                             )
@@ -564,10 +584,11 @@ fun LibraryScreen(
                                                     .background(EInkSurface),
                                                 contentAlignment = Alignment.Center
                                             ) {
+                                                val displayDownloadedTitle = dynamicMangaTitles[manga.mangaId] ?: manga.title
                                                 if (manga.coverFile != null && manga.coverFile.exists()) {
                                                     AsyncImage(
                                                         model = manga.coverFile,
-                                                        contentDescription = manga.title,
+                                                        contentDescription = displayDownloadedTitle,
                                                         contentScale = ContentScale.Crop,
                                                         modifier = Modifier
                                                             .fillMaxSize()
@@ -575,7 +596,7 @@ fun LibraryScreen(
                                                     )
                                                 } else {
                                                     Text(
-                                                        text = "[ Bìa offline ]",
+                                                        text = strings.offlineCover,
                                                         style = MaterialTheme.typography.labelSmall
                                                     )
                                                 }
@@ -599,7 +620,7 @@ fun LibraryScreen(
                                                     .padding(8.dp)
                                             ) {
                                                 Text(
-                                                    text = manga.title,
+                                                    text = dynamicMangaTitles[manga.mangaId] ?: manga.title,
                                                     style = MaterialTheme.typography.titleMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
                                                     minLines = 2,
                                                     maxLines = 2,
@@ -644,7 +665,7 @@ fun LibraryScreen(
                         } else if (isOnlineLoading) {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text(
-                                    text = "[ ĐANG ĐỒNG BỘ THƯ VIỆN MANGADEX... ]",
+                                    text = strings.syncingMangaDex,
                                     style = MaterialTheme.typography.titleMedium,
                                     modifier = Modifier
                                         .border(1.dp, EInkBorder, RoundedCornerShape(4.dp))
@@ -695,7 +716,7 @@ fun LibraryScreen(
                                         Text(strings.retry, color = EInkBlack)
                                     }
                                 } else {
-                                    Text(text = "Lỗi kết nối: $onlineError", color = Color.Red)
+                                    Text(text = String.format(strings.connectionError, onlineError ?: ""), color = Color.Red)
                                     Spacer(modifier = Modifier.height(12.dp))
                                     OutlinedButton(
                                         onClick = { refreshOnline() },
@@ -781,7 +802,7 @@ fun LibraryScreen(
                             if (displayedOnlineList.isEmpty()) {
                                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Text(
-                                        text = "Không có truyện nào ở mục này.",
+                                        text = strings.noMangaInCategory,
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = EInkDarkGray
                                     )

@@ -60,7 +60,7 @@ object AppUpdateHelper {
      */
     suspend fun checkForUpdate(
         client: OkHttpClient = OkHttpClient(),
-        currentVersion: String = "1.6.2"
+        currentVersion: String = "1.6.3"
     ): Result<AppReleaseInfo> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder()

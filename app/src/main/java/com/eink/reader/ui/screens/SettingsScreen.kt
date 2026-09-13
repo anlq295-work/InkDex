@@ -344,9 +344,9 @@ fun SettingsScreen(
                                         Text(strings.hardwareInfo, fontSize = 11.sp, color = EInkDarkGray)
                                         Text(
                                             text = if (eInkSupportEnabled) {
-                                                if (isBigme) "✓ Bigme B751C / B751C S (Màn hình màu Kaleido 3)" else "Thiết bị E-Ink tiêu chuẩn (Carta B&W)"
+                                                if (isBigme) strings.hardwareBigmeKaleido else strings.hardwareStandardEInk
                                             } else {
-                                                "Màn hình thông thường (Đã tắt tối ưu E-Ink)"
+                                                strings.hardwareStandardScreen
                                             },
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 13.sp,
@@ -383,15 +383,15 @@ fun SettingsScreen(
                                         onClick = {
                                             coroutineScope.launch {
                                                 isCheckingUpdate = true
-                                                updateCheckResult = "Đang kiểm tra..."
-                                                val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.6.2")
+                                                updateCheckResult = strings.checkUpdateChecking
+                                                val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.6.3")
                                                 res.onSuccess { info ->
                                                     isCheckingUpdate = false
                                                     if (info.isNewer) {
                                                         availableUpdateInfo = info
-                                                        updateCheckResult = "🎉 Có bản mới: ${info.tagName}!"
+                                                        updateCheckResult = String.format(strings.checkUpdateResultAvailable, info.tagName)
                                                     } else {
-                                                        updateCheckResult = "✓ Đang ở bản mới nhất v1.6.2"
+                                                        updateCheckResult = String.format(strings.checkUpdateResultLatest, "1.6.3")
                                                     }
                                                 }.onFailure { err ->
                                                     isCheckingUpdate = false
@@ -404,7 +404,7 @@ fun SettingsScreen(
                                         border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
                                         modifier = (if (eInkSupportEnabled) Modifier.weight(1f) else Modifier.fillMaxWidth()).height(36.dp)
                                     ) {
-                                        Text(if (isCheckingUpdate) "Đang check..." else "CẬP NHẬT", color = EInkBlack, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text(if (isCheckingUpdate) strings.checkUpdateChecking else strings.checkUpdate, color = EInkBlack, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
 
@@ -437,10 +437,10 @@ fun SettingsScreen(
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("Dữ liệu & Tài nguyên In-App (Hot Patch):", fontSize = 11.sp, color = EInkDarkGray)
-                                        val langInfo = if (remoteConfig.strings.isNotEmpty()) "${remoteConfig.strings.size} gói ngôn ngữ" else "Từ điển chuẩn"
+                                        Text(strings.hotPatchTitle, fontSize = 11.sp, color = EInkDarkGray)
+                                        val langInfo = if (remoteConfig.strings.isNotEmpty()) String.format(strings.hotPatchLanguagePacks, remoteConfig.strings.size) else strings.hotPatchStandardDict
                                         Text(
-                                            text = "Data v${remoteConfig.configVersion} • ${remoteConfig.chapterRules.extraPrefixes.size} tiền tố chap • $langInfo",
+                                            text = String.format(strings.hotPatchInfoFormat, remoteConfig.configVersion, remoteConfig.chapterRules.extraPrefixes.size, langInfo),
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 13.sp,
                                             color = EInkBlack
@@ -449,9 +449,9 @@ fun SettingsScreen(
                                         val lastSyncFormatted = if (lastSync > 0) {
                                             val sdf = java.text.SimpleDateFormat("HH:mm dd/MM/yyyy", java.util.Locale.getDefault())
                                             sdf.format(java.util.Date(lastSync))
-                                        } else "Chưa đồng bộ"
+                                        } else strings.hotPatchNeverSynced
                                         Text(
-                                            text = "Lần cập nhật gần nhất: $lastSyncFormatted",
+                                            text = String.format(strings.hotPatchLastSync, lastSyncFormatted),
                                             fontSize = 10.sp,
                                             color = EInkDarkGray
                                         )
@@ -462,18 +462,18 @@ fun SettingsScreen(
                                     onClick = {
                                         coroutineScope.launch {
                                             isCheckingPatch = true
-                                            patchCheckResult = "Đang kiểm tra gói tài nguyên từ xa..."
+                                            patchCheckResult = strings.hotPatchChecking
                                             val res = repository.remoteConfigManager.checkForNewConfig(force = true)
                                             isCheckingPatch = false
                                             res.onSuccess { cfg ->
                                                 if (cfg != null) {
                                                     availablePatchInfo = cfg
-                                                    patchCheckResult = "🎉 Có bản data mới: v${cfg.configVersion}!"
+                                                    patchCheckResult = String.format(strings.hotPatchAvailable, cfg.configVersion)
                                                 } else {
                                                     isCheckingPatch = true
-                                                    patchCheckResult = "Đang đồng bộ làm mới dữ liệu..."
+                                                    patchCheckResult = strings.hotPatchSyncing
                                                     repository.remoteConfigManager.syncRemoteConfig(force = true).onSuccess {
-                                                        patchCheckResult = "✓ Dữ liệu & từ điển ngôn ngữ đã ở trạng thái mới nhất!"
+                                                        patchCheckResult = strings.hotPatchSuccess
                                                     }.onFailure { err ->
                                                         patchCheckResult = "❌ Lỗi: ${err.localizedMessage}"
                                                     }
@@ -491,7 +491,7 @@ fun SettingsScreen(
                                 ) {
                                     Icon(Icons.Default.CloudDownload, contentDescription = null, tint = EInkBlack, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text(if (isCheckingPatch) "Đang nạp dữ liệu..." else "ĐỒNG BỘ TÀI NGUYÊN & CẤU HÌNH (IN-APP)", color = EInkBlack, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(if (isCheckingPatch) strings.hotPatchLoading else strings.hotPatchButton, color = EInkBlack, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
 
                                 patchCheckResult?.let {
@@ -508,7 +508,7 @@ fun SettingsScreen(
 
                         // Footer phiên bản
                         Text(
-                            text = if (eInkSupportEnabled) "InkDex Manga Reader v1.6.2 • Phiên bản tối ưu E-Ink & Bigme Kaleido 3" else "InkDex Manga Reader v1.6.2 • Chế độ màn hình tiêu chuẩn",
+                            text = String.format(if (eInkSupportEnabled) strings.footerEInkOptimized else strings.footerStandardMode, "1.6.3"),
                             fontSize = 11.sp,
                             color = EInkDarkGray,
                             textAlign = TextAlign.Center,
@@ -530,7 +530,7 @@ fun SettingsScreen(
                     ) {
                         // PHẦN 1: CHỨC NĂNG CÁ NHÂN & TÀI KHOẢN
                         Text(
-                            text = "1. CHỨC NĂNG CÁ NHÂN & TÀI KHOẢN MANGADEX",
+                            text = "1. ${strings.personalSection1}",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = EInkBlack)
                         )
 
@@ -553,7 +553,7 @@ fun SettingsScreen(
                                                 Icon(Icons.Default.AccountCircle, contentDescription = null, tint = EInkBlack)
                                                 Spacer(modifier = Modifier.width(8.dp))
                                                 Column {
-                                                    Text("Tài khoản MangaDex", fontSize = 12.sp, color = EInkDarkGray)
+                                                    Text(strings.accountMangaDex, fontSize = 12.sp, color = EInkDarkGray)
                                                     Text(currentUsername ?: "", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                                 }
                                             }
@@ -570,7 +570,7 @@ fun SettingsScreen(
                                                 border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
                                                 modifier = Modifier.height(32.dp)
                                             ) {
-                                                Text("Đăng xuất", color = EInkBlack, fontSize = 11.sp)
+                                                Text(strings.logout, color = EInkBlack, fontSize = 11.sp)
                                             }
                                         }
 
@@ -578,12 +578,12 @@ fun SettingsScreen(
 
                                         val expTimestamp = com.eink.reader.data.api.OAuthHelper.getTokenExpirationTimestamp(settings.sessionToken)
                                         val tokenStatusText = if (isExpired) {
-                                            "⚠️ Phiên đăng nhập đã hết hạn (Mã 401). Vui lòng bấm 'Làm mới Token' hoặc 'Đăng nhập lại'."
+                                            strings.sessionExpiredNotice
                                         } else if (expTimestamp != null) {
                                             val remainMin = ((expTimestamp - System.currentTimeMillis() / 1000L) / 60).coerceAtLeast(0)
-                                            "✓ Phiên đăng nhập: Hợp lệ (còn ~${remainMin} phút, tự động làm mới nếu có refresh token)"
+                                            String.format(strings.sessionActiveMin, remainMin)
                                         } else {
-                                            "✓ Phiên đăng nhập: Đang hoạt động"
+                                            strings.sessionActive
                                         }
 
                                         Text(
@@ -620,7 +620,7 @@ fun SettingsScreen(
                                                 colors = ButtonDefaults.buttonColors(containerColor = EInkBlack, contentColor = EInkWhite),
                                                 modifier = Modifier.weight(1f).height(34.dp)
                                             ) {
-                                                Text(if (isRefreshingToken) "Đang làm mới..." else "LÀM MỚI TOKEN", fontSize = 11.sp, color = EInkWhite)
+                                                Text(if (isRefreshingToken) strings.refreshingToken else strings.refreshTokenBtn, fontSize = 11.sp, color = EInkWhite)
                                             }
 
                                             OutlinedButton(
@@ -629,7 +629,7 @@ fun SettingsScreen(
                                                 border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
                                                 modifier = Modifier.weight(1f).height(34.dp)
                                             ) {
-                                                Text("ĐĂNG NHẬP LẠI", fontSize = 11.sp, color = EInkBlack)
+                                                Text(strings.reloginBtn, fontSize = 11.sp, color = EInkBlack)
                                             }
                                         }
                                     }
@@ -643,7 +643,7 @@ fun SettingsScreen(
                                         Icon(Icons.Default.AccountCircle, contentDescription = null, tint = EInkWhite)
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "ĐĂNG NHẬP QUA WEB (TK & MK)",
+                                            text = strings.webLoginBtn,
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = EInkWhite
@@ -651,7 +651,7 @@ fun SettingsScreen(
                                     }
 
                                     Text(
-                                        "Mở trang đăng nhập chính thức MangaDex (hỗ trợ Captcha Turnstile, bảo mật 2FA, tài khoản & mật khẩu).",
+                                        strings.webLoginDesc,
                                         fontSize = 11.sp,
                                         color = EInkDarkGray
                                     )
@@ -662,8 +662,8 @@ fun SettingsScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text("Dùng Proxy Worker khi đăng nhập Web", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                            Text("Tắt nếu bạn dùng VPN hoặc mạng không bị chặn.", fontSize = 11.sp, color = EInkDarkGray)
+                                            Text(strings.useProxyForWebLogin, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                            Text(strings.useProxyForWebLoginDesc, fontSize = 11.sp, color = EInkDarkGray)
                                         }
                                         Switch(
                                             checked = useProxyForAuth,
@@ -689,10 +689,10 @@ fun SettingsScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text("Hoặc đăng nhập bằng Personal API Client:", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = EInkBlack)
-                                            Text("Khuyên dùng: Đăng nhập trực tiếp bằng TK & MK không cần WebView / Captcha", fontSize = 11.sp, color = EInkDarkGray)
+                                            Text(strings.orLoginWithPersonalClient, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = EInkBlack)
+                                            Text(strings.recommendedNoWebview, fontSize = 11.sp, color = EInkDarkGray)
                                         }
-                                        Text(if (showPersonalClientSection) "▲ Thu gọn" else "▼ Mở rộng", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EInkBlack)
+                                        Text(if (showPersonalClientSection) strings.collapseSection else strings.expandSection, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EInkBlack)
                                     }
 
                                     if (showPersonalClientSection) {
@@ -703,12 +703,12 @@ fun SettingsScreen(
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
                                             Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                Text("Lấy Client ID & Secret: Vào mangadex.org trên trình duyệt máy tính -> Avatar -> User Settings -> API Clients -> Add Client.", fontSize = 11.sp, color = EInkDarkGray)
+                                                Text(strings.howToGetClientId, fontSize = 11.sp, color = EInkDarkGray)
 
                                                 OutlinedTextField(
                                                     value = pcUsername,
                                                     onValueChange = { pcUsername = it },
-                                                    label = { Text("Tên tài khoản hoặc Email", fontSize = 11.sp) },
+                                                    label = { Text(strings.usernameOrEmail, fontSize = 11.sp) },
                                                     singleLine = true,
                                                     modifier = Modifier.fillMaxWidth()
                                                 )
@@ -716,7 +716,7 @@ fun SettingsScreen(
                                                 OutlinedTextField(
                                                     value = pcPassword,
                                                     onValueChange = { pcPassword = it },
-                                                    label = { Text("Mật khẩu MangaDex", fontSize = 11.sp) },
+                                                    label = { Text(strings.mangaDexPassword, fontSize = 11.sp) },
                                                     visualTransformation = PasswordVisualTransformation(),
                                                     singleLine = true,
                                                     modifier = Modifier.fillMaxWidth()
@@ -725,7 +725,7 @@ fun SettingsScreen(
                                                 OutlinedTextField(
                                                     value = pcClientId,
                                                     onValueChange = { pcClientId = it },
-                                                    label = { Text("Personal Client ID", fontSize = 11.sp) },
+                                                    label = { Text(strings.personalClientId, fontSize = 11.sp) },
                                                     placeholder = { Text("personal-client-...", fontSize = 11.sp, color = Color.Gray) },
                                                     singleLine = true,
                                                     modifier = Modifier.fillMaxWidth()
@@ -734,7 +734,7 @@ fun SettingsScreen(
                                                 OutlinedTextField(
                                                     value = pcClientSecret,
                                                     onValueChange = { pcClientSecret = it },
-                                                    label = { Text("Personal Client Secret", fontSize = 11.sp) },
+                                                    label = { Text(strings.personalClientSecret, fontSize = 11.sp) },
                                                     visualTransformation = PasswordVisualTransformation(),
                                                     singleLine = true,
                                                     modifier = Modifier.fillMaxWidth()
@@ -784,7 +784,7 @@ fun SettingsScreen(
                                                     colors = ButtonDefaults.buttonColors(containerColor = EInkBlack, contentColor = EInkWhite),
                                                     modifier = Modifier.fillMaxWidth().height(36.dp)
                                                 ) {
-                                                    Text(if (isPcLoading) "Đang xác thực..." else "ĐĂNG NHẬP PERSONAL CLIENT", color = EInkWhite, fontSize = 11.sp)
+                                                    Text(if (isPcLoading) strings.personalClientLoggingIn else strings.personalClientLoginBtn, color = EInkWhite, fontSize = 11.sp)
                                                 }
                                             }
                                         }
@@ -885,9 +885,9 @@ fun SettingsScreen(
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     val currentTheme = themeMode
                                     val themeOptions = listOf(
-                                        "LIGHT" to "Sáng",
-                                        "DARK" to "Tối",
-                                        "SYSTEM" to "Theo máy"
+                                        "LIGHT" to strings.themeLight,
+                                        "DARK" to strings.themeDark,
+                                        "SYSTEM" to strings.themeSystem
                                     )
                                     themeOptions.forEach { (modeKey, modeTitle) ->
                                         val isSelected = currentTheme == modeKey
@@ -918,25 +918,25 @@ fun SettingsScreen(
                                 HorizontalDivider(color = EInkBorder)
 
                                 // Phân loại nội dung (Content Ratings)
-                                Text("Phân loại nội dung (Content Ratings):", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text(strings.contentRatingDesc, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 Text("Chọn các nhãn nội dung sẽ được hiển thị khi tìm kiếm và duyệt danh mục:", fontSize = 11.sp, color = EInkDarkGray)
 
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    RatingChip("Safe", crSafe) {
+                                    RatingChip(strings.ratingSafe, crSafe) {
                                         crSafe = it
                                         settings.contentRatingSafe = it
                                     }
-                                    RatingChip("Suggestive", crSuggestive) {
+                                    RatingChip(strings.ratingSuggestive, crSuggestive) {
                                         crSuggestive = it
                                         settings.contentRatingSuggestive = it
                                     }
                                 }
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    RatingChip("Erotica", crErotica) {
+                                    RatingChip(strings.ratingErotica, crErotica) {
                                         crErotica = it
                                         settings.contentRatingErotica = it
                                     }
-                                    RatingChip("Pornographic", crPornographic) {
+                                    RatingChip(strings.ratingPornographic, crPornographic) {
                                         crPornographic = it
                                         settings.contentRatingPornographic = it
                                         if (!settings.isAppThemeExplicitlySet) {
@@ -971,7 +971,7 @@ fun SettingsScreen(
 
                         // PHẦN 2: KHÓA BẢO VỆ ỨNG DỤNG (APP LOCK)
                         Text(
-                            text = "2. KHÓA BẢO VỆ ỨNG DỤNG (APP LOCK)",
+                            text = "2. ${strings.personalSection2}",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = EInkBlack)
                         )
 
@@ -1014,7 +1014,7 @@ fun SettingsScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("Bật mật khẩu khóa ứng dụng", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                        Text(strings.appLockEnable, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                         Text(
                                             if (appLockPin.isNotBlank()) "Đã đặt mã PIN (Yêu cầu mã PIN khi mở app)" else "Chưa đặt mã PIN bảo vệ",
                                             fontSize = 11.sp,
@@ -1075,7 +1075,7 @@ fun SettingsScreen(
                                             modifier = Modifier.height(30.dp),
                                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                                         ) {
-                                            Text("Đổi mã PIN", color = EInkBlack, fontSize = 11.sp)
+                                            Text(strings.appLockChangePin, color = EInkBlack, fontSize = 11.sp)
                                         }
                                     }
                                 } else {
@@ -1091,7 +1091,7 @@ fun SettingsScreen(
                                         modifier = Modifier.fillMaxWidth().height(32.dp),
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                                     ) {
-                                        Text("Thiết lập mã PIN ngay", color = EInkBlack, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text(strings.appLockSetPin, color = EInkBlack, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -1099,7 +1099,7 @@ fun SettingsScreen(
 
                         // PHẦN 3: KẾT NỐI MẠNG & PROXY BYPASS
                         Text(
-                            text = "3. KẾT NỐI MẠNG & PROXY BYPASS",
+                            text = "3. ${strings.personalSection3}",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = EInkBlack)
                         )
 
@@ -1116,8 +1116,8 @@ fun SettingsScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("Bật DNS over HTTPS (DoH)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                        Text("Vượt chặn DNS nhà mạng không cần VPN.", fontSize = 11.sp, color = EInkDarkGray)
+                                        Text(strings.networkDohTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                        Text(strings.networkDohDesc, fontSize = 11.sp, color = EInkDarkGray)
                                     }
                                     Switch(
                                         checked = useDoH,
@@ -1155,7 +1155,7 @@ fun SettingsScreen(
 
                                 HorizontalDivider(color = EInkBorder)
 
-                                Text("Reverse Proxy / Cloudflare Worker URL:", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text(strings.networkCustomApiTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 OutlinedTextField(
                                     value = customApiUrl,
                                     onValueChange = {
@@ -1321,7 +1321,7 @@ fun SettingsScreen(
                     ) {
                         // PHẦN 1: CÀI ĐẶT NGƯỜI ĐỌC (READER SETTINGS)
                         Text(
-                            text = "1. CÀI ĐẶT TRÌNH ĐỌC TRUYỆN (READER)",
+                            text = "1. ${strings.readerSection1}",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = EInkBlack)
                         )
 
@@ -1332,7 +1332,7 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("Chế độ đọc mặc định:", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text(strings.readingDirectionTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     val isRtl = readingDirection == "RTL"
                                     val isLtr = readingDirection == "LTR"
@@ -1352,7 +1352,7 @@ fun SettingsScreen(
                                         modifier = Modifier.weight(1f).height(36.dp),
                                         contentPadding = PaddingValues(0.dp)
                                     ) {
-                                        Text("Phải sang Trái (Manga)", color = if (isRtl) EInkWhite else EInkBlack, fontSize = 10.sp, maxLines = 1)
+                                        Text(strings.directionRtl, color = if (isRtl) EInkWhite else EInkBlack, fontSize = 10.sp, maxLines = 1)
                                     }
 
                                     OutlinedButton(
@@ -1369,7 +1369,7 @@ fun SettingsScreen(
                                         modifier = Modifier.weight(1f).height(36.dp),
                                         contentPadding = PaddingValues(0.dp)
                                     ) {
-                                        Text("Trái sang Phải", color = if (isLtr) EInkWhite else EInkBlack, fontSize = 10.sp, maxLines = 1)
+                                        Text(strings.directionLtr, color = if (isLtr) EInkWhite else EInkBlack, fontSize = 10.sp, maxLines = 1)
                                     }
 
                                     OutlinedButton(
@@ -1386,7 +1386,7 @@ fun SettingsScreen(
                                         modifier = Modifier.weight(1f).height(36.dp),
                                         contentPadding = PaddingValues(0.dp)
                                     ) {
-                                        Text("Cuộn dọc (Webtoon)", color = if (isVertical) EInkWhite else EInkBlack, fontSize = 10.sp, maxLines = 1)
+                                        Text(strings.directionVertical, color = if (isVertical) EInkWhite else EInkBlack, fontSize = 10.sp, maxLines = 1)
                                     }
                                 }
 
@@ -1397,11 +1397,11 @@ fun SettingsScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Số lượng trang tải trước (Pre-cache):", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(strings.preCacheTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                     Text("${preCacheCount.toInt()} trang", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 }
                                 Text(
-                                    "Số lượng tải trước càng nhiều chất lượng đọc càng cao nhưng tốn nhiều bộ nhớ đệm hơn.",
+                                    strings.preCacheDesc,
                                     fontSize = 11.sp,
                                     color = EInkDarkGray
                                 )
@@ -1418,7 +1418,7 @@ fun SettingsScreen(
 
                                 HorizontalDivider(color = EInkBorder)
 
-                                Text("Chuyển trang bằng nút bấm vật lý (E-Reader Keys):", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text(strings.volumeKeysTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     listOf(
                                         "VOLUME" to "Phím Âm lượng (Lên / Xuống)",
@@ -1451,7 +1451,7 @@ fun SettingsScreen(
 
                         // PHẦN 2: VỊ TRÍ LƯU TRỮ TRUYỆN TẢI VỀ (STORAGE)
                         Text(
-                            text = "2. VỊ TRÍ LƯU TRỮ TRUYỆN TẢI VỀ (THẺ NHỚ / BỘ NHỚ)",
+                            text = "2. ${strings.readerSection2}",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = EInkBlack)
                         )
 
@@ -1462,7 +1462,7 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text("Đường dẫn lưu truyện hiện tại:", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text(strings.storageCurrentLocation, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 Text(
                                     text = currentEffectivePath,
                                     fontSize = 12.sp,
@@ -1483,7 +1483,7 @@ fun SettingsScreen(
                                     shape = RoundedCornerShape(2.dp)
                                 )
 
-                                Text("Vị trí bộ nhớ khả dụng (Nhấn để chọn):", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Text(strings.storageSelectLocation, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
 
                                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     availableLocations.forEach { loc ->
@@ -1565,7 +1565,7 @@ fun SettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(20.dp)
                     ) {
                         Text(
-                            text = "1. TỐI ƯU HÓA MÀN HÌNH E-INK (CHỐNG LƯU ẢNH)",
+                            text = "1. ${strings.eInkSection1}",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = EInkBlack)
                         )
 
@@ -1583,8 +1583,8 @@ fun SettingsScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                                        Text("Tắt hiệu ứng co giãn trượt (Disable Overscroll)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                        Text("Loại bỏ hiệu ứng nảy/co dãn đàn hồi khi cuộn tới mép danh sách, chống làm nhòe và bóng mờ màn hình.", fontSize = 11.sp, color = EInkDarkGray)
+                                        Text(strings.eInkDisableOverscrollTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                        Text(strings.eInkDisableOverscrollDesc, fontSize = 11.sp, color = EInkDarkGray)
                                     }
                                     Switch(
                                         checked = eInkDisableOverscroll,
@@ -1605,8 +1605,8 @@ fun SettingsScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                                        Text("Nút nhảy trang nổi ở danh sách [▲] [▼]", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                        Text("Hiển thị cụm phím tắt nổi giúp nhảy dứt khoát 1 trang màn hình thay vì vuốt trượt ngón tay.", fontSize = 11.sp, color = EInkDarkGray)
+                                        Text(strings.eInkPageButtonsTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                        Text(strings.eInkPageButtonsDesc, fontSize = 11.sp, color = EInkDarkGray)
                                     }
                                     Switch(
                                         checked = eInkPageButtonsEnabled,
@@ -1643,13 +1643,13 @@ fun SettingsScreen(
                                 HorizontalDivider(color = EInkBorder)
 
                                 // 4. Tự động khử bóng ma định kỳ
-                                Text("Tự động khử bóng ma (Làm mới màn hình định kỳ):", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text(strings.eInkAutoRefreshTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 val intervalOptions = listOf(
-                                    0 to "Tắt",
-                                    1 to "Mỗi 1 trang",
-                                    5 to "Mỗi 5 trang",
-                                    10 to "Mỗi 10 trang",
-                                    15 to "Mỗi 15 trang"
+                                    0 to strings.eInkAutoRefreshNever,
+                                    1 to String.format(strings.eInkAutoRefreshPages, 1),
+                                    5 to String.format(strings.eInkAutoRefreshPages, 5),
+                                    10 to String.format(strings.eInkAutoRefreshPages, 10),
+                                    15 to String.format(strings.eInkAutoRefreshPages, 15)
                                 )
                                 Row(
                                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -1685,8 +1685,8 @@ fun SettingsScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                                        Text("Tự động chuyển chương kế (Auto Next Chapter)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                        Text("Khi đọc đến trang cuối cùng của chương, chạm tiếp trang hoặc bấm phím âm lượng sẽ tự động tải chương tiếp theo liền mạch.", fontSize = 11.sp, color = EInkDarkGray)
+                                        Text(strings.autoNextChapterTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                        Text(strings.autoNextChapterDesc, fontSize = 11.sp, color = EInkDarkGray)
                                     }
                                     Switch(
                                         checked = autoNextChapter,
@@ -1702,10 +1702,10 @@ fun SettingsScreen(
 
                                 // 6. Chế độ màu E-Ink mặc định (Tối ưu Bigme B751C / Kaleido 3)
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text("Chế độ màu mặc định khi mở truyện:", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(strings.defaultColorModeTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                     val isBigme = remember { EInkHelper.isBigmeDevice() }
                                     Text(
-                                        text = if (isBigme) "✓ Đã nhận diện máy đọc sách Bigme B751C (Màn hình màu Kaleido 3)" else "Tối ưu cho màn hình màu Kaleido 3 (Bigme B751C) và màn đen trắng Carta 1200",
+                                        text = if (isBigme) "✓ ${strings.hardwareBigmeKaleido}" else strings.eInkBigmeColorsDesc,
                                         fontSize = 11.sp,
                                         color = if (isBigme) Color(0xFF006600) else EInkDarkGray
                                     )
@@ -1753,7 +1753,7 @@ fun SettingsScreen(
                                 ) {
                                     Icon(Icons.Default.Refresh, contentDescription = null, tint = EInkWhite, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("KHỬ BÓNG MA NGAY BÂY GIỜ (LÀM MỚI E-INK)", color = EInkWhite, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text(strings.refreshEInk, color = EInkWhite, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                 }
                             }
                         }
@@ -1786,19 +1786,19 @@ fun SettingsScreen(
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = "InkDex Manga Reader",
+                                    text = strings.creditTitleHeader,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 18.sp,
                                     color = EInkBlack
                                 )
                                 Text(
-                                    text = "Phiên bản 1.6.2 (Build 13) • Đa ngôn ngữ (VI, EN, FR, ES, ZH, KO) • Tự động Update In-App",
+                                    text = String.format(strings.creditVersionFormat, "1.6.3", 14),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp,
                                     color = EInkBlack
                                 )
                                 Text(
-                                    text = "Trình đọc truyện tranh MangaDex chuyên biệt cho Máy đọc sách E-Ink & Màn hình màu Kaleido 3",
+                                    text = strings.creditDeviceSub,
                                     fontSize = 11.sp,
                                     color = EInkDarkGray,
                                     textAlign = TextAlign.Center
@@ -1853,7 +1853,7 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("CÔNG NGHỆ & THƯ VIỆN MÃ NGUỒN MỞ", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = EInkBlack)
+                                Text(strings.creditOpenSourceTitle, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = EInkBlack)
                                 Text(
                                     text = "• Android Jetpack Compose & Material 3\n" +
                                             "• Coil 3 (Xử lý hình ảnh & Bộ lọc màu Kaleido 3 ColorMatrix)\n" +
@@ -1877,9 +1877,9 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("LỜI CẢM ƠN", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = EInkBlack)
+                                Text(strings.creditThanksTitle, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = EInkBlack)
                                 Text(
-                                    text = "Chân thành cảm ơn cộng đồng MangaDex đã phát triển nền tảng truyện tranh mở tuyệt vời. Cảm ơn cộng đồng người dùng máy đọc sách E-Ink tại Việt Nam đã nhiệt tình đóng góp ý kiến để hoàn thiện InkDex!",
+                                    text = strings.creditThanksContent,
                                     fontSize = 11.sp,
                                     color = EInkDarkGray,
                                     lineHeight = 16.sp
@@ -1902,13 +1902,7 @@ fun SettingsScreen(
         )
     }
 
-    availableUpdateInfo?.let { info ->
-        UpdateDialog(
-            releaseInfo = info,
-            currentVersion = "1.2",
-            onDismiss = { availableUpdateInfo = null }
-        )
-    }
+
 
     if (showSetPinDialog) {
         AlertDialog(
@@ -1921,7 +1915,7 @@ fun SettingsScreen(
             },
             title = {
                 Text(
-                    text = if (appLockPin.isBlank()) "THIẾT LẬP MÃ PIN KHÓA APP" else "ĐỔI MÃ PIN KHÓA APP",
+                    text = if (appLockPin.isBlank()) strings.appLockDialogTitleSet else strings.appLockDialogTitleChange,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = EInkBlack
@@ -1929,11 +1923,11 @@ fun SettingsScreen(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Nhập mã PIN gồm 4-6 chữ số để bảo vệ ứng dụng:", fontSize = 12.sp, color = EInkDarkGray)
+                    Text(strings.appLockDialogDesc, fontSize = 12.sp, color = EInkDarkGray)
                     OutlinedTextField(
                         value = newPinInput,
                         onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) newPinInput = it },
-                        label = { Text("Mã PIN mới (4-6 số)", fontSize = 11.sp) },
+                        label = { Text(strings.appLockNewPin, fontSize = 11.sp) },
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         singleLine = true,
@@ -1942,7 +1936,7 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = confirmPinInput,
                         onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) confirmPinInput = it },
-                        label = { Text("Xác nhận lại mã PIN", fontSize = 11.sp) },
+                        label = { Text(strings.appLockConfirmPin, fontSize = 11.sp) },
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         singleLine = true,
@@ -1971,7 +1965,7 @@ fun SettingsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = EInkBlack, contentColor = EInkWhite),
                     shape = RoundedCornerShape(2.dp)
                 ) {
-                    Text("Lưu mã PIN", color = EInkWhite, fontSize = 12.sp)
+                    Text(strings.confirm, color = EInkWhite, fontSize = 12.sp)
                 }
             },
             dismissButton = {
@@ -1986,7 +1980,7 @@ fun SettingsScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
                     shape = RoundedCornerShape(2.dp)
                 ) {
-                    Text("Hủy", color = EInkBlack, fontSize = 12.sp)
+                    Text(strings.cancel, color = EInkBlack, fontSize = 12.sp)
                 }
             },
             containerColor = EInkWhite,
@@ -2000,7 +1994,7 @@ fun SettingsScreen(
             onDismissRequest = { showDisablePinDialog = false },
             title = {
                 Text(
-                    text = "XÁC NHẬN TẮT KHÓA ỨNG DỤNG",
+                    text = strings.appLockDisableTitle,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = EInkBlack
@@ -2009,14 +2003,14 @@ fun SettingsScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "Nhập mã PIN hiện tại để tắt bảo vệ và xóa mã PIN:",
+                        strings.appLockDisableDesc,
                         fontSize = 12.sp,
                         color = EInkDarkGray
                     )
                     OutlinedTextField(
                         value = disablePinInput,
                         onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) disablePinInput = it },
-                        label = { Text("Mã PIN hiện tại", fontSize = 11.sp) },
+                        label = { Text(strings.appLockEnterPin, fontSize = 11.sp) },
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         singleLine = true,
@@ -2043,7 +2037,7 @@ fun SettingsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = EInkBlack, contentColor = EInkWhite),
                     shape = RoundedCornerShape(2.dp)
                 ) {
-                    Text("Xác nhận tắt khóa", color = EInkWhite, fontSize = 12.sp)
+                    Text(strings.confirm, color = EInkWhite, fontSize = 12.sp)
                 }
             },
             dismissButton = {
@@ -2052,7 +2046,7 @@ fun SettingsScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
                     shape = RoundedCornerShape(2.dp)
                 ) {
-                    Text("Hủy", color = EInkBlack, fontSize = 12.sp)
+                    Text(strings.cancel, color = EInkBlack, fontSize = 12.sp)
                 }
             },
             containerColor = EInkWhite,
@@ -2072,7 +2066,7 @@ fun SettingsScreen(
     availableUpdateInfo?.let { info ->
         UpdateDialog(
             releaseInfo = info,
-            currentVersion = "1.6.2",
+            currentVersion = "1.6.3",
             onDismiss = { availableUpdateInfo = null }
         )
     }
