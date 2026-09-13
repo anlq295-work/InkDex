@@ -159,7 +159,10 @@ fun ReaderScreen(
                 res.onSuccess { list ->
                     // Sắp xếp thứ tự chương tăng dần: Ch.1 -> Ch.2 -> Ch.3...
                     chaptersList = list.sortedWith(
-                        compareBy { it.attributes.chapter?.toFloatOrNull() ?: Float.MAX_VALUE }
+                        compareBy(
+                            { it.attributes.chapter?.toFloatOrNull() ?: Float.MAX_VALUE },
+                            { it.attributes.publishAt ?: "" }
+                        )
                     )
                 }
             }
@@ -174,24 +177,24 @@ fun ReaderScreen(
         }
     }
 
-    // Xác định vị trí chương hiện tại và chương kế tiếp / chương trước đó (ưu tiên cùng ngôn ngữ)
-    val currentOnlineIdx = remember(activeChapterId, chaptersList) {
-        if (chaptersList.isEmpty()) -1
+    // Trạng thái hiển thị popup cảnh báo nhảy chương (Skip Chapter Warning Dialog)
+    var showSkipChapterDialog by remember { mutableStateOf(false) }
+    var pendingOnlineChapter by remember { mutableStateOf<com.eink.reader.data.model.ChapterItem?>(null) }
+    var pendingOfflineCbz by remember { mutableStateOf<java.io.File?>(null) }
+
+    // Xác định chương hiện tại đang đọc
+    val currentOnlineChapter = remember(activeChapterId, chaptersList) {
+        if (chaptersList.isEmpty()) null
         else {
-            val idx = chaptersList.indexOfFirst { it.id == activeChapterId }
-            if (idx != -1) idx
-            else {
-                chaptersList.indexOfFirst { ch ->
+            chaptersList.firstOrNull { it.id == activeChapterId }
+                ?: chaptersList.firstOrNull { ch ->
                     ch.displayTitle == activeChapterTitle ||
                     (ch.attributes.chapter != null && activeChapterTitle.contains("Ch.${ch.attributes.chapter}"))
                 }
-            }
         }
     }
-    val currentLanguage = remember(currentOnlineIdx, chaptersList) {
-        if (currentOnlineIdx in chaptersList.indices) {
-            chaptersList[currentOnlineIdx].attributes.translatedLanguage
-        } else null
+    val currentLanguage = remember(currentOnlineChapter) {
+        currentOnlineChapter?.attributes?.translatedLanguage
     }
     val sameLangChapters = remember(chaptersList, currentLanguage) {
         if (!currentLanguage.isNullOrBlank()) {
@@ -199,14 +202,85 @@ fun ReaderScreen(
             if (filtered.isNotEmpty()) filtered else chaptersList
         } else chaptersList
     }
+
+    val currentGroupId = remember(currentOnlineChapter) {
+        currentOnlineChapter?.relationships?.firstOrNull { it.type == "scanlation_group" }?.id
+    }
+    val currentGroupName = remember(currentOnlineChapter) {
+        currentOnlineChapter?.scanlationGroup
+    }
+    val currentChapterNum = remember(currentOnlineChapter) {
+        currentOnlineChapter?.attributes?.chapter?.toFloatOrNull()
+    }
+
+    fun isSameGroup(item: com.eink.reader.data.model.ChapterItem): Boolean {
+        val gId = item.relationships.firstOrNull { it.type == "scanlation_group" }?.id
+        if (!currentGroupId.isNullOrBlank() && !gId.isNullOrBlank() && gId == currentGroupId) {
+            return true
+        }
+        val gName = item.scanlationGroup
+        if (!currentGroupName.isNullOrBlank() && !gName.isNullOrBlank() && gName.equals(currentGroupName, ignoreCase = true)) {
+            return true
+        }
+        return false
+    }
+
     val currentSameLangIdx = remember(activeChapterId, sameLangChapters) {
         sameLangChapters.indexOfFirst { it.id == activeChapterId }
     }
-    val nextOnlineChapter = remember(currentSameLangIdx, sameLangChapters) {
-        if (currentSameLangIdx in 0 until sameLangChapters.size - 1) sameLangChapters[currentSameLangIdx + 1] else null
+
+    // Tự động tìm chương kế tiếp: Ưu tiên cùng nhóm dịch, fallback nhóm khác nếu hết
+    val nextOnlineChapter = remember(currentOnlineChapter, sameLangChapters, currentChapterNum, currentGroupId, currentGroupName, currentSameLangIdx) {
+        if (sameLangChapters.isEmpty()) null
+        else {
+            val upcoming = if (currentChapterNum != null) {
+                sameLangChapters.filter { cand ->
+                    val n = cand.attributes.chapter?.toFloatOrNull()
+                    n != null && n > currentChapterNum
+                }
+            } else if (currentSameLangIdx in 0 until sameLangChapters.size - 1) {
+                sameLangChapters.subList(currentSameLangIdx + 1, sameLangChapters.size)
+            } else emptyList()
+
+            if (upcoming.isEmpty()) null
+            else {
+                // 1. Ưu tiên tìm chương tiếp theo của CÙNG nhóm dịch
+                val sameGroupCandidates = upcoming.filter { isSameGroup(it) }
+                if (sameGroupCandidates.isNotEmpty()) {
+                    sameGroupCandidates.first()
+                } else {
+                    // 2. Nếu nhóm hiện tại không có chương tiếp theo -> lấy chương kế tiếp của nhóm bất kỳ
+                    upcoming.first()
+                }
+            }
+        }
     }
-    val prevOnlineChapter = remember(currentSameLangIdx, sameLangChapters) {
-        if (currentSameLangIdx > 0) sameLangChapters[currentSameLangIdx - 1] else null
+
+    // Tự động tìm chương trước đó: Ưu tiên cùng nhóm dịch
+    val prevOnlineChapter = remember(currentOnlineChapter, sameLangChapters, currentChapterNum, currentGroupId, currentGroupName, currentSameLangIdx) {
+        if (sameLangChapters.isEmpty()) null
+        else {
+            val previous = if (currentChapterNum != null) {
+                sameLangChapters.filter { cand ->
+                    val n = cand.attributes.chapter?.toFloatOrNull()
+                    n != null && n < currentChapterNum
+                }
+            } else if (currentSameLangIdx > 0) {
+                sameLangChapters.subList(0, currentSameLangIdx)
+            } else emptyList()
+
+            if (previous.isEmpty()) null
+            else {
+                // 1. Ưu tiên cùng nhóm dịch (lấy chương gần nhất trước đó)
+                val sameGroupCandidates = previous.filter { isSameGroup(it) }
+                if (sameGroupCandidates.isNotEmpty()) {
+                    sameGroupCandidates.last()
+                } else {
+                    // 2. Fallback sang nhóm khác
+                    previous.last()
+                }
+            }
+        }
     }
 
     val currentCbzIdx = remember(activeChapterId, siblingCbzFiles) {
@@ -265,82 +339,116 @@ fun ReaderScreen(
         loadPages(isDataSaver, targetPage)
     }
 
-    fun goToNextChapter() {
+    // Phát hiện nhảy chương (Skip chapter detection)
+    fun isChapterSkipped(currChapter: com.eink.reader.data.model.ChapterItem?, nextChapter: com.eink.reader.data.model.ChapterItem?): Boolean {
+        if (currChapter == null || nextChapter == null) return false
+        val currNum = currChapter.attributes.chapter?.toFloatOrNull()
+        val nextNum = nextChapter.attributes.chapter?.toFloatOrNull()
+        if (currNum == null || nextNum == null) return false
+
+        // Kiểm tra 1: Nhảy cách số nguyên (ví dụ: Ch.1 -> Ch.3, Ch.1 -> Ch.2.5, Ch.5 -> Ch.7)
+        if (nextNum - currNum >= 1.5f || nextNum.toInt() > currNum.toInt() + 1) {
+            return true
+        }
+
+        // Kiểm tra 2: Có chương nguyên nằm giữa trong danh sách cùng ngôn ngữ
+        val hasIntermediateWhole = sameLangChapters.any { ch ->
+            val n = ch.attributes.chapter?.toFloatOrNull()
+            n != null && n > currNum && n < nextNum && (n.toInt() > currNum.toInt() && n.toInt() < nextNum.toInt())
+        }
+        return hasIntermediateWhole
+    }
+
+    fun isCbzSkipped(currTitle: String, nextName: String): Boolean {
+        val numRegex = Regex("""(?:ch|chapter|c|chap|tập)?[\s._-]*([0-9]+(?:\.[0-9]+)?)""", RegexOption.IGNORE_CASE)
+        val currMatch = numRegex.findAll(currTitle).lastOrNull()?.groupValues?.get(1)?.toFloatOrNull()
+        val nextMatch = numRegex.findAll(nextName).lastOrNull()?.groupValues?.get(1)?.toFloatOrNull()
+        if (currMatch != null && nextMatch != null) {
+            return (nextMatch - currMatch >= 1.5f || nextMatch.toInt() > currMatch.toInt() + 1)
+        }
+        return false
+    }
+
+    fun executeLoadOfflineCbz(file: java.io.File) {
+        chapterNoticeMessage = "Đang tải: ${file.nameWithoutExtension}"
+        activeChapterId = file.absolutePath
+        activeChapterTitle = file.nameWithoutExtension
+        currentPageIndex = 0
+        coroutineScope.launch {
+            scrollState.scrollTo(0)
+            webtoonListState.scrollToItem(0)
+            delay(2500)
+            if (chapterNoticeMessage?.contains(file.nameWithoutExtension) == true) {
+                chapterNoticeMessage = null
+            }
+        }
+    }
+
+    fun executeLoadOnlineChapter(ch: com.eink.reader.data.model.ChapterItem) {
+        chapterNoticeMessage = "Đang chuyển sang: ${ch.displayTitle}"
+        activeChapterId = ch.id
+        activeChapterTitle = ch.displayTitle
+        currentPageIndex = 0
+        coroutineScope.launch {
+            scrollState.scrollTo(0)
+            webtoonListState.scrollToItem(0)
+            delay(2500)
+            if (chapterNoticeMessage?.contains(ch.displayTitle) == true) {
+                chapterNoticeMessage = null
+            }
+        }
+    }
+
+    fun goToNextChapter(force: Boolean = false) {
         if (isOfflineCbz) {
-            nextOfflineCbz?.let { nextFile ->
-                chapterNoticeMessage = "Đang tải: ${nextFile.nameWithoutExtension}"
-                activeChapterId = nextFile.absolutePath
-                activeChapterTitle = nextFile.nameWithoutExtension
-                currentPageIndex = 0
-                coroutineScope.launch {
-                    scrollState.scrollTo(0)
-                    webtoonListState.scrollToItem(0)
-                    delay(2500)
-                    if (chapterNoticeMessage?.contains(nextFile.nameWithoutExtension) == true) {
-                        chapterNoticeMessage = null
-                    }
-                }
-            } ?: run {
+            val nextFile = nextOfflineCbz
+            if (nextFile == null) {
                 chapterNoticeMessage = "Bạn đã đọc đến chương cuối cùng!"
                 coroutineScope.launch {
                     delay(2500)
                     chapterNoticeMessage = null
                 }
+                return
             }
+
+            if (!force && isCbzSkipped(activeChapterTitle, nextFile.nameWithoutExtension)) {
+                pendingOfflineCbz = nextFile
+                pendingOnlineChapter = null
+                showSkipChapterDialog = true
+                return
+            }
+
+            executeLoadOfflineCbz(nextFile)
         } else {
-            nextOnlineChapter?.let { nextCh ->
-                chapterNoticeMessage = "Đang chuyển sang: ${nextCh.displayTitle}"
-                activeChapterId = nextCh.id
-                activeChapterTitle = nextCh.displayTitle
-                currentPageIndex = 0
-                coroutineScope.launch {
-                    scrollState.scrollTo(0)
-                    webtoonListState.scrollToItem(0)
-                    delay(2500)
-                    if (chapterNoticeMessage?.contains(nextCh.displayTitle) == true) {
-                        chapterNoticeMessage = null
-                    }
-                }
-            } ?: run {
+            val nextCh = nextOnlineChapter
+            if (nextCh == null) {
                 chapterNoticeMessage = "Bạn đã đọc đến chương mới nhất của truyện!"
                 coroutineScope.launch {
                     delay(2500)
                     chapterNoticeMessage = null
                 }
+                return
             }
+
+            if (!force && isChapterSkipped(currentOnlineChapter, nextCh)) {
+                pendingOnlineChapter = nextCh
+                pendingOfflineCbz = null
+                showSkipChapterDialog = true
+                return
+            }
+
+            executeLoadOnlineChapter(nextCh)
         }
     }
 
     fun goToPrevChapter() {
         if (isOfflineCbz) {
             prevOfflineCbz?.let { prevFile ->
-                chapterNoticeMessage = "Đang tải: ${prevFile.nameWithoutExtension}"
-                activeChapterId = prevFile.absolutePath
-                activeChapterTitle = prevFile.nameWithoutExtension
-                currentPageIndex = 0
-                coroutineScope.launch {
-                    scrollState.scrollTo(0)
-                    webtoonListState.scrollToItem(0)
-                    delay(2500)
-                    if (chapterNoticeMessage?.contains(prevFile.nameWithoutExtension) == true) {
-                        chapterNoticeMessage = null
-                    }
-                }
+                executeLoadOfflineCbz(prevFile)
             }
         } else {
             prevOnlineChapter?.let { prevCh ->
-                chapterNoticeMessage = "Đang tải: ${prevCh.displayTitle}"
-                activeChapterId = prevCh.id
-                activeChapterTitle = prevCh.displayTitle
-                currentPageIndex = 0
-                coroutineScope.launch {
-                    scrollState.scrollTo(0)
-                    webtoonListState.scrollToItem(0)
-                    delay(2500)
-                    if (chapterNoticeMessage?.contains(prevCh.displayTitle) == true) {
-                        chapterNoticeMessage = null
-                    }
-                }
+                executeLoadOnlineChapter(prevCh)
             }
         }
     }
@@ -1235,5 +1343,97 @@ fun ReaderScreen(
                 }
             }
         }
+    }
+
+    // Popup cảnh báo nhảy chương (Skip Chapter Warning Dialog)
+    if (showSkipChapterDialog) {
+        val pendingTitle = pendingOnlineChapter?.displayTitle
+            ?: pendingOfflineCbz?.nameWithoutExtension
+            ?: ""
+        val group = pendingOnlineChapter?.scanlationGroup
+
+        AlertDialog(
+            onDismissRequest = {
+                showSkipChapterDialog = false
+                pendingOnlineChapter = null
+                pendingOfflineCbz = null
+            },
+            title = {
+                Text(
+                    text = "Phát hiện nhảy chương",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = EInkBlack
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Bạn đang đọc: $activeChapterTitle",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = EInkBlack
+                    )
+                    Text(
+                        text = "Chương tiếp theo: $pendingTitle",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        color = EInkBlack
+                    )
+                    if (!group.isNullOrBlank()) {
+                        Text(
+                            text = "Nhóm dịch: $group",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.DarkGray
+                        )
+                    }
+                    Text(
+                        text = "Chương kế tiếp không liền kề với chương hiện tại (có thể bị nhảy chương hoặc thiếu chương ở giữa). Bạn có muốn tiếp tục đọc không?",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = EInkBlack
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val targetCh = pendingOnlineChapter
+                        val targetCbz = pendingOfflineCbz
+                        showSkipChapterDialog = false
+                        pendingOnlineChapter = null
+                        pendingOfflineCbz = null
+                        if (targetCh != null) {
+                            executeLoadOnlineChapter(targetCh)
+                        } else if (targetCbz != null) {
+                            executeLoadOfflineCbz(targetCbz)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = EInkBlack,
+                        contentColor = EInkWhite
+                    ),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text("Tiếp tục đọc", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        showSkipChapterDialog = false
+                        pendingOnlineChapter = null
+                        pendingOfflineCbz = null
+                        onBackClick()
+                    },
+                    shape = RoundedCornerShape(4.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, EInkBlack),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = EInkBlack
+                    )
+                ) {
+                    Text("Quay lại chi tiết truyện", fontWeight = FontWeight.Medium)
+                }
+            },
+            containerColor = EInkWhite,
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.border(1.dp, EInkBlack, RoundedCornerShape(8.dp))
+        )
     }
 }

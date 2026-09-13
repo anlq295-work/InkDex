@@ -107,7 +107,7 @@ class MainActivity : ComponentActivity() {
                                     lastUpdateCheckTime = now
                                     coroutineScope.launch {
                                         delay(1500)
-                                        val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.3")
+                                        val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.3.1")
                                         res.onSuccess { info ->
                                             if (info.isNewer) {
                                                 startupUpdateInfo = info
@@ -383,7 +383,7 @@ class MainActivity : ComponentActivity() {
                         startupUpdateInfo?.let { info ->
                             UpdateDialog(
                                 releaseInfo = info,
-                                currentVersion = "1.3",
+                                currentVersion = "1.3.1",
                                 onDismiss = { startupUpdateInfo = null }
                             )
                         }
