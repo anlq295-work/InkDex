@@ -305,7 +305,7 @@ fun SettingsScreen(
                         // 4. Credit & Giới thiệu
                         SettingsMenuItem(
                             title = "Credit & Giới thiệu",
-                            subtitle = "InkDex v1.5 • Bigme B751C S • MangaDex API",
+                            subtitle = "InkDex v1.6 • Bigme B751C S • MangaDex API",
                             icon = Icons.Default.Info,
                             onClick = { currentSubScreen = SettingsSubScreen.CREDIT }
                         )
@@ -373,14 +373,14 @@ fun SettingsScreen(
                                             coroutineScope.launch {
                                                 isCheckingUpdate = true
                                                 updateCheckResult = "Đang kiểm tra..."
-                                                val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.5")
+                                                val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.6")
                                                 res.onSuccess { info ->
                                                     isCheckingUpdate = false
                                                     if (info.isNewer) {
                                                         availableUpdateInfo = info
                                                         updateCheckResult = "🎉 Có bản mới: ${info.tagName}!"
                                                     } else {
-                                                        updateCheckResult = "✓ Đang ở bản mới nhất v1.5"
+                                                        updateCheckResult = "✓ Đang ở bản mới nhất v1.6"
                                                     }
                                                 }.onFailure { err ->
                                                     isCheckingUpdate = false
@@ -484,7 +484,7 @@ fun SettingsScreen(
 
                         // Footer phiên bản
                         Text(
-                            text = if (eInkSupportEnabled) "InkDex Manga Reader v1.5 • Phiên bản tối ưu E-Ink & Bigme Kaleido 3" else "InkDex Manga Reader v1.5 • Chế độ màn hình tiêu chuẩn",
+                            text = if (eInkSupportEnabled) "InkDex Manga Reader v1.6 • Phiên bản tối ưu E-Ink & Bigme Kaleido 3" else "InkDex Manga Reader v1.6 • Chế độ màn hình tiêu chuẩn",
                             fontSize = 11.sp,
                             color = EInkDarkGray,
                             textAlign = TextAlign.Center,
@@ -1745,7 +1745,7 @@ fun SettingsScreen(
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Card tiêu đề ứng dụng v1.5
+                        // Card tiêu đề ứng dụng v1.6
                         Card(
                             shape = RoundedCornerShape(4.dp),
                             colors = CardDefaults.cardColors(containerColor = EInkWhite),
@@ -1764,7 +1764,7 @@ fun SettingsScreen(
                                     color = EInkBlack
                                 )
                                 Text(
-                                    text = "Phiên bản 1.5 (Build 10) • Dark Theme E-Ink & Mặc định Private Tối • Remote Config",
+                                    text = "Phiên bản 1.6 (Build 11) • Đa ngôn ngữ (VI, EN, FR, ES, ZH, KO) • Tự động Update In-App",
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp,
                                     color = EInkBlack

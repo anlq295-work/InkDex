@@ -137,7 +137,7 @@ class MainActivity : ComponentActivity() {
                                         delay(1500)
                                         // Tự động đồng bộ Remote Config ngầm định kỳ (nếu > 6h)
                                         repository.remoteConfigManager.syncRemoteConfig(force = false)
-                                        val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.5")
+                                        val res = AppUpdateHelper.checkForUpdate(currentVersion = "1.6")
                                         res.onSuccess { info ->
                                             if (info.isNewer) {
                                                 startupUpdateInfo = info
@@ -454,7 +454,7 @@ class MainActivity : ComponentActivity() {
                         startupUpdateInfo?.let { info ->
                             UpdateDialog(
                                 releaseInfo = info,
-                                currentVersion = "1.5",
+                                currentVersion = "1.6",
                                 onDismiss = { startupUpdateInfo = null }
                             )
                         }
